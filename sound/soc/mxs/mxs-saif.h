@@ -128,6 +128,8 @@ struct mxs_saif {
 		MXS_SAIF_STATE_STOPPED,
 		MXS_SAIF_STATE_RUNNING,
 	} state;
+
+	struct clk_divider div_clk;
 };
 
 extern int mxs_saif_put_mclk(unsigned int saif_id);

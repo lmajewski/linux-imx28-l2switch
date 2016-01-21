@@ -767,6 +767,16 @@ config SPI_SPIDEV
 	  Note that this application programming interface is EXPERIMENTAL
 	  and hence SUBJECT TO CHANGE WITHOUT NOTICE while it stabilizes.
 
+config SPI_SPIDEV_AUTO
+	bool "Create spidev nodes for unclaimed chip selects"
+	depends on SPI_SPIDEV
+
+config SPI_SPIDEV_MAX_SPEED_DEF
+	int "Default max speed (Hz)"
+	range 0 100000000
+	default 100000000
+	depends on SPI_SPIDEV_AUTO
+
 config SPI_LOOPBACK_TEST
 	tristate "spi loopback test framework support"
 	depends on m

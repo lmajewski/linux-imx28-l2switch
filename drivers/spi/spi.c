@@ -1866,6 +1866,36 @@ static void acpi_register_spi_devices(struct spi_controller *ctlr)
 static inline void acpi_register_spi_devices(struct spi_controller *ctlr) {}
 #endif /* CONFIG_ACPI */
 
+#ifdef CONFIG_SPI_SPIDEV_AUTO
+static void spidev_register_spi_devices(struct spi_controller *ctlr)
+{
+	struct spi_device *spi;
+	int err;
+	int i;
+
+	for (i = 0; i < ctlr->num_chipselect; i++) {
+		spi = spi_alloc_device(ctlr);
+		if (!spi)
+			return;
+
+		strlcpy(spi->modalias, "spidev", sizeof(spi->modalias));
+		spi->chip_select = i;
+		spi->max_speed_hz = ctlr->max_speed_hz ?
+			ctlr->max_speed_hz : CONFIG_SPI_SPIDEV_MAX_SPEED_DEF;
+
+		err = bus_for_each_dev(&spi_bus_type, NULL, spi, spi_dev_check);
+
+		if (!err)
+			err = spi_add_device(spi);
+
+		if (err)
+			spi_dev_put(spi);
+	}
+}
+#else
+static void spidev_register_spi_devices(struct spi_controller *ctlr) { }
+#endif
+
 static void spi_controller_release(struct device *dev)
 {
 	struct spi_controller *ctlr;
@@ -2238,6 +2268,7 @@ int spi_register_controller(struct spi_controller *ctlr)
 	/* Register devices from the device tree and ACPI */
 	of_register_spi_devices(ctlr);
 	acpi_register_spi_devices(ctlr);
+	spidev_register_spi_devices(ctlr);
 done:
 	return status;
 }

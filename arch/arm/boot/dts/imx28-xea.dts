@@ -186,29 +186,13 @@
 };
 
 &ssp0 {
-	compatible = "fsl,imx28-spi";
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc0_8bit_pins_a>;
-	status = "disabled";
-
-	flash1: n25q512ax3@1 {
-		#adress-cells = <1>;
-		#size-cells = <1>;
-		compatible = "micron,n25q512ax3", "jedec,spi-nor";
-		spi-max-frequency = <40000000>;
-		reg = <1>;
-		
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			partition@0 {
-				label = "rootfs";
-				reg = <0 0x4000000>;
-			};
-		};
-	};
+        compatible = "fsl,imx28-mmc";
+        pinctrl-names = "default";
+        pinctrl-0 = <&mmc0_8bit_pins_a>;
+        bus-width = <8>;
+        vmmc-supply = <&reg_3v3>;
+        non-removable;
+        status = "okay";
 };
 
 &usb0 {

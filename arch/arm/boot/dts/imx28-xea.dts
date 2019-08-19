@@ -40,8 +40,17 @@
 			gpio = <&gpio0 2 0>;
 			enable-active-high;
 		};
-	};
 
+                reg_fec_3v3: regulator@2 {
+                        compatible = "regulator-fixed";
+                        reg = <2>;
+                        regulator-name = "fec-phy";
+                        regulator-min-microvolt = <3300000>;
+                        regulator-max-microvolt = <3300000>;
+                        gpio = <&gpio0 0 0>;
+                        enable-active-high;
+                };
+	};
 };
 
 &pinctrl {
@@ -106,7 +115,7 @@
 	phy-mode = "rmii";
         pinctrl-names = "default";
         pinctrl-0 = <&mac0_pins_a>;
-        phy-supply = <&reg_3v3>;
+        phy-supply = <&reg_fec_3v3>;
         phy-reset-gpios = <&gpio2 13 0>;
         phy-reset-duration = <100>;
         local-mac-address = [ 00 11 B8 00 BF 8A ];

@@ -1,2 +1,17 @@
 /dts-v1/;
 #include "imx28-xea.dtsi"
+
+&pinctrl {
+         pinctrl-0 = <&hog_pins_a &hog_pins_tiva &hog_pins_tests>;
+
+         hog_pins_tests: hog@2 {
+               reg = <2>;
+               fsl,pinmux-ids = <
+                        MX28_PAD_I2C0_SDA__GPIO_3_25
+                        MX28_PAD_AUART2_RTS__GPIO_3_11
+               >;
+               fsl,drive-strength = <MXS_DRIVE_8mA>;
+               fsl,voltage = <MXS_VOLTAGE_HIGH>;
+               fsl,pull-up = <MXS_PULL_ENABLE>;
+       };
+};

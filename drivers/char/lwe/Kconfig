@@ -1,0 +1,9 @@
+#
+# Liebherr LSB protocol drivers
+#
+
+config GPIOSYNC
+	tristate "synchronize GPIO with system time"
+	help
+	  This driver allows to synchronize a GPIO with an
+	  the system time.

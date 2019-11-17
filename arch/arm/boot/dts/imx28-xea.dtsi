@@ -166,8 +166,13 @@
 			};
 
 			partition@80000 {
-				label = "env";
-				reg = <0x80000 0x20000>;
+				label = "env0";
+				reg = <0x80000 0x10000>;
+			};
+
+			partition@90000 {
+				label = "env1";
+				reg = <0x90000 0x10000>;
 			};
 
 			partition@100000 {

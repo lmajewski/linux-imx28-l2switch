@@ -55,6 +55,7 @@ config FEC_MPC52xx_MDIO
 
 source "drivers/net/ethernet/freescale/fs_enet/Kconfig"
 source "drivers/net/ethernet/freescale/fman/Kconfig"
+source "drivers/net/ethernet/freescale/l2_switch/Kconfig"
 
 config FSL_PQ_MDIO
 	tristate "Freescale PQ MDIO"

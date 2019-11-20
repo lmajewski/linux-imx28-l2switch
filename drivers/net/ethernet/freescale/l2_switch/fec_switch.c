@@ -3355,8 +3355,8 @@ static int fec_enet_mii_probe(struct net_device *dev)
 
 	/* find the phy, assuming fec index corresponds to addr */
 	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
-		if (fep->mii_bus->phy_map[phy_addr]) {
-			phy_dev[i] = fep->mii_bus->phy_map[phy_addr];
+		if (mdiobus_is_registered_device(fep->mii_bus, phy_addr)) {
+			phy_dev[i] = mdiobus_get_phy(fep->mii_bus, phy_addr);
 			i += 1;
 		}
 		if (i > 1)

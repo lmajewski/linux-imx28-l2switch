@@ -1970,11 +1970,10 @@ static void  esw_bridge_port_configure(
 }
 
 /* The timer should create an interrupt every 4 seconds*/
-static void l2switch_aging_timer(unsigned long data)
+static void l2switch_aging_timer(struct timer_list *t)
 {
 	struct switch_enet_private *fep;
-
-	fep = (struct switch_enet_private *)data;
+	fep = from_timer(fep, t, timer_aging);
 
 	if (fep) {
 		TIMEINCREMENT(fep->currTime);
@@ -4400,14 +4399,8 @@ static int __init eth_switch_probe(struct platform_device *pdev)
 			fep->mii_bus = fec_mii_bus;
 
 		/* setup timer for Learning  Aging function */
-		/*
-		 * setup_timer(&fep->timer_aging,
-		 *	l2switch_aging_timer, (unsigned long)fep);
-		 */
-		init_timer(&fep->timer_aging);
-		fep->timer_aging.function = l2switch_aging_timer;
-		fep->timer_aging.data = (unsigned long) fep;
-		fep->timer_aging.expires = jiffies + LEARNING_AGING_TIMER;
+		timer_setup(&fep->timer_aging, l2switch_aging_timer, 0);
+		mod_timer(&fep->timer_aging, jiffies + LEARNING_AGING_TIMER);
 
 		/* register network device */
 		if (register_netdev(dev) != 0) {

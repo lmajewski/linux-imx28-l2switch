@@ -3369,17 +3369,15 @@ static int fec_enet_mii_probe(struct net_device *dev)
 	}
 
 	/* attach the mac to the phy */
-	phy_dev[0] = phy_connect(dev, dev_name(&phy_dev[0]->dev),
-			     &switch_adjust_link0, 0,
-			     fep->phy_interface);
+	phy_dev[0] = phy_connect(dev, phydev_name(phy_dev[0]),
+			     &switch_adjust_link0, fep->phy_interface);
 	if (IS_ERR(phy_dev[0])) {
 		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
 		return PTR_ERR(phy_dev[0]);
 	}
 
-	phy_dev[1] = phy_connect(dev, dev_name(&phy_dev[1]->dev),
-			     &switch_adjust_link1, 0,
-			     fep->phy_interface);
+	phy_dev[1] = phy_connect(dev, phydev_name(phy_dev[1]),
+			     &switch_adjust_link1, fep->phy_interface);
 	if (IS_ERR(phy_dev[1])) {
 		printk(KERN_ERR "%s: Could not attach to PHY\n", dev->name);
 		return PTR_ERR(phy_dev[1]);
@@ -3399,7 +3397,7 @@ static int fec_enet_mii_probe(struct net_device *dev)
 
 	printk(KERN_INFO "%s: Freescale FEC PHY driver [%s] "
 		"(mii_bus:phy_addr=%s, irq=%d)\n", dev->name,
-		fep->phy_dev[0]->drv->name, dev_name(&fep->phy_dev[0]->dev),
+		fep->phy_dev[0]->drv->name, phydev_name(fep->phy_dev[0]),
 		fep->phy_dev[0]->irq);
 
 	return 0;

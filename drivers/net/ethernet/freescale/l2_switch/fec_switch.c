@@ -3660,7 +3660,6 @@ switch_enet_close(struct net_device *dev)
  */
 
 /* bits in hash */
-#define HASH_BITS	6
 #define CRC32_POLY	0xEDB88320
 
 static void set_multicast_list(struct net_device *dev)

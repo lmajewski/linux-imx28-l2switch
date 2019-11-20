@@ -367,8 +367,8 @@ static void read_atable(struct switch_enet_private *fep,
 {
 	unsigned long atable_base = (unsigned long)fep->hwentry;
 
-	*read_lo = readl(atable_base + (index<<3));
-	*read_hi = readl(atable_base + (index<<3) + 4);
+	*read_lo = readl((const volatile void*)atable_base + (index<<3));
+	*read_hi = readl((const volatile void*)atable_base + (index<<3) + 4);
 }
 
 static void write_atable(struct switch_enet_private *fep,
@@ -377,8 +377,8 @@ static void write_atable(struct switch_enet_private *fep,
 {
 	unsigned long atable_base = (unsigned long)fep->hwentry;
 
-	writel(write_lo, atable_base + (index<<3));
-	writel(write_hi, atable_base + (index<<3) + 4);
+	writel(write_lo, (volatile void *)atable_base + (index<<3));
+	writel(write_hi, (volatile void *)atable_base + (index<<3) + 4);
 }
 
 /* Read one element from the HW receive FIFO (Queue)

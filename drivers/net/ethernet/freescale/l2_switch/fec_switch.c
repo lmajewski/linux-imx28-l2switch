@@ -146,8 +146,8 @@ static void switch_request_intrs(struct net_device *dev,
 
 	/* Setup interrupt handlers */
 	if (request_irq(dev->irq,
-		switch_net_irq_handler, IRQF_DISABLED,
-		"mxs-l2switch", irq_privatedata) != 0)
+		switch_net_irq_handler, 0, "mxs-l2switch",
+			irq_privatedata) != 0)
 		printk(KERN_ERR "FEC: Could not alloc %s IRQ(%d)!\n",
 			dev->name, dev->irq);
 }
@@ -3973,10 +3973,10 @@ static int __init switch_enet_init(struct net_device *dev,
 	if (plat && plat->request_intrs)
 		plat->request_intrs(dev, switch_enet_interrupt, dev);
 
-	if (request_irq(fep->mac0_irq, mac0_enet_interrupt, IRQF_DISABLED,
+	if (request_irq(fep->mac0_irq, mac0_enet_interrupt, 0,
 			"enet-1588", dev))
 		printk(KERN_ERR "IEEE1588: failed to request irq\n");
-	if (request_irq(fep->mac1_irq, mac1_enet_interrupt, IRQF_DISABLED,
+	if (request_irq(fep->mac1_irq, mac1_enet_interrupt, 0,
 			"enet-1588", dev))
 		printk(KERN_ERR "IEEE1588: failed to request irq\n");
 

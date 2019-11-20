@@ -3782,7 +3782,7 @@ static int switch_mac_addr_setup(char *mac_addr)
 		if (ptr)
 			*ptr++ = '\0';
 		if (strlen(p)) {
-			ret = strict_strtoul(p, 16, &tmp);
+			ret = kstrtoul(p, 16, &tmp);
 			if (ret < 0 || tmp > 0xff)
 				break;
 			switch_mac_default[i++] = tmp;

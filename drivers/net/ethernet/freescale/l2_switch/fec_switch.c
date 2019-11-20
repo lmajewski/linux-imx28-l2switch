@@ -2793,7 +2793,7 @@ switch_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	bdp->bdu = 0x00000000;
 	bdp->ebd_status = TX_BD_INT | TX_BD_TS;
 #endif
-	dev->trans_start = jiffies;
+	netif_trans_update(dev);
 
 	/* Trigger transmission start */
 	writel(MCF_ESW_TDAR_X_DES_ACTIVE, &fecp->fec_x_des_active);

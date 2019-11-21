@@ -3754,7 +3754,7 @@ static const struct net_device_ops fec_netdev_ops = {
        .ndo_stop		= switch_enet_close,
        .ndo_do_ioctl		= switch_enet_ioctl,
        .ndo_start_xmit		= switch_enet_start_xmit,
-       .ndo_set_multicast_list	= set_multicast_list,
+       .ndo_set_rx_mode	= set_multicast_list,
        .ndo_tx_timeout		= switch_timeout,
        .ndo_set_mac_address	= switch_set_mac_address,
 };

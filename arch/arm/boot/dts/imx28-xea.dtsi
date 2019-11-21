@@ -121,6 +121,7 @@
 };
 
 &mac0 {
+	compatible = "fsl,l2-switch";
 	phy-mode = "rmii";
         pinctrl-names = "default";
         pinctrl-0 = <&mac0_pins_a>;

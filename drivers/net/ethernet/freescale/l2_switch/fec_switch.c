@@ -28,6 +28,7 @@
 #include <linux/workqueue.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
+#include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/fsl_devices.h>
 #include <linux/fec.h>
@@ -44,7 +45,7 @@
 #define	SWITCH_MAX_PORTS	1
 
 #if defined(CONFIG_ARCH_MXC) || defined(CONFIG_ARCH_MXS)
-#include <mach/hardware.h>
+//#include <mach/hardware.h>
 #define FEC_ALIGNMENT   0xf
 #else
 #define FEC_ALIGNMENT   0x3
@@ -205,9 +206,9 @@ static void switch_set_mii(struct net_device *dev)
 	/*
 	* Set MII speed to 2.5 MHz
 	*/
-	writel(DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000) << 1,
+	writel(DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000) << 1,
 			fep->enet_addr + MCF_FEC_MSCR0);
-	writel(DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000) << 1,
+	writel(DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000) << 1,
 			fep->enet_addr + MCF_FEC_MSCR1);
 
 #ifdef CONFIG_ARCH_MXS
@@ -3414,7 +3415,7 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 	/*
 	 * Set MII speed to 2.5 MHz (= clk_get_rate() / 2 * phy_speed)
 	 */
-	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk), 5000000) << 1;
+	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000) << 1;
 #ifdef CONFIG_ARCH_MXS
 	/* Can't get phy(8720) ID when set to 2.5M on MX28, lower it */
 	fep->phy_speed <<= 2;
@@ -3577,7 +3578,7 @@ switch_enet_open(struct net_device *dev)
 	/* I should reset the ring buffers here, but I don't yet know
 	 * a simple way to do that.
 	 */
-	clk_enable(fep->clk);
+	clk_enable(fep->clk_ipg);
 	ret = fec_enet_alloc_buffers(dev);
 	if (ret)
 		return ret;
@@ -3630,7 +3631,7 @@ switch_enet_close(struct net_device *dev)
 	}
 
 	fec_enet_free_buffers(dev);
-	clk_disable(fep->clk);
+	clk_disable(fep->clk_ipg);
 
 	return 0;
 }
@@ -3782,16 +3783,64 @@ static int switch_mac_addr_setup(char *mac_addr)
 
 __setup("fec_mac=", switch_mac_addr_setup);
 
+/* Platform data ported */
+#define MX28_SOC_IO_PHYS_BASE   0x80000000
+#define ENET_PHYS_ADDR          (MX28_SOC_IO_PHYS_BASE + 0x0F0000)
+#define IRQ_ENET_SWI            100
+#define IRQ_ENET_MAC0           101
+#define IRQ_ENET_MAC1           102
+
+static struct resource l2switch_resources[] = {
+	{
+		.start  = ENET_PHYS_ADDR,
+		.end    = ENET_PHYS_ADDR + 0x17FFC,
+		.flags  = IORESOURCE_MEM
+	},
+	{
+		.start  = IRQ_ENET_SWI,
+		.end    = IRQ_ENET_SWI,
+		.flags  = IORESOURCE_IRQ
+	},
+	{
+		.start  = IRQ_ENET_MAC0,
+		.end    = IRQ_ENET_MAC0,
+		.flags  = IORESOURCE_IRQ
+	},
+	{
+		.start  = IRQ_ENET_MAC1,
+		.end    = IRQ_ENET_MAC1,
+		.flags  = IORESOURCE_IRQ
+	},
+};
+
+/* Define the fixed address of the L2 Switch hardware. */
+static unsigned int switch_platform_hw[2] = {
+	(0x800F8000),
+	(0x800FC000),
+};
+
+static struct fec_platform_data fec_enet = {
+	.phy = PHY_INTERFACE_MODE_RMII,
+//	.init = mx28evk_enet_gpio_init,
+};
+
+static struct switch_platform_data l2switch_data = {
+	.id             = 0,
+	.fec_enet       = &fec_enet,
+	.hash_table     = 0,
+	.switch_hw      = switch_platform_hw,
+};
+
 /* Initialize the FEC Ethernet */
 static int __init switch_enet_init(struct net_device *dev,
 	int slot, struct platform_device *pdev)
 {
 	struct switch_enet_private	*fep = netdev_priv(dev);
-	struct resource 	*r;
+	struct resource		*r;
 	struct cbd_t		*bdp;
 	struct cbd_t		*cbd_base;
 	struct switch_t	*fecp;
-	int	i;
+	int	i, ret;
 	struct switch_platform_data *plat = pdev->dev.platform_data;
 
 	/* Only allow us to be probed once. */
@@ -3829,6 +3878,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	 */
 	fecp = (struct switch_t *)(fep->enet_addr + ENET_SWI_PHYS_ADDR_OFFSET
 		/ sizeof(unsigned long));
+
 	plat->switch_hw[1] = (unsigned long)fecp + MCF_ESW_LOOKUP_MEM_OFFSET;
 
 	fep->index = slot;
@@ -3841,11 +3891,19 @@ static int __init switch_enet_init(struct net_device *dev,
 	fep->phy_hwp = fecp;
 #endif
 
-	fep->clk = clk_get(&pdev->dev, "fec_clk");
-	if (IS_ERR(fep->clk))
-		return PTR_ERR(fep->clk);
-	clk_enable(fep->clk);
+	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(fep->clk_ipg))
+		return PTR_ERR(fep->clk_ipg);
 
+	ret = clk_prepare_enable(fep->clk_ipg);
+
+	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
+	if (IS_ERR(fep->clk_ahb))
+		return PTR_ERR(fep->clk_ahb);
+
+	fep->clk_enet_out = devm_clk_get(&pdev->dev, "enet_out");
+	if (IS_ERR(fep->clk_enet_out))
+		fep->clk_enet_out = NULL;
 
 	/* PHY reset should be done during clock on */
 	if (plat) {
@@ -4331,12 +4389,19 @@ switch_stop(struct net_device *dev)
 	udelay(10);
 }
 
-static int __init eth_switch_probe(struct platform_device *pdev)
+int __init eth_switch_probe(struct platform_device *pdev)
 {
 	struct net_device *dev;
 	int i, err;
 	struct switch_enet_private *fep;
 	struct switch_platform_private *chip;
+
+	/* Hack -> port platdata to be in-driver */
+	pdev->resource = l2switch_resources;
+	pdev->num_resources = ARRAY_SIZE(l2switch_resources);
+	pdev->dev.platform_data = &l2switch_data;
+	pdev->id = 0;
+	/* ------------------ */
 
 	printk(KERN_INFO "Ethernet Switch Version 1.0\n");
 	chip = kzalloc(sizeof(struct switch_platform_private) +
@@ -4366,6 +4431,7 @@ static int __init eth_switch_probe(struct platform_device *pdev)
 		fep->pdev = pdev;
 		printk(KERN_ERR "%s: ethernet switch port %d init\n",
 			__func__, i);
+
 		err = switch_enet_init(dev, i, pdev);
 		if (err) {
 			free_netdev(dev);
@@ -4397,6 +4463,7 @@ static int __init eth_switch_probe(struct platform_device *pdev)
 				dev->name);
 			return -EIO;
 		}
+
 		printk(KERN_INFO "%s: ethernet switch %pM\n",
 				dev->name, dev->dev_addr);
 	}
@@ -4435,17 +4502,24 @@ static int eth_switch_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id eth_switch_driver_of_match[] = {
+	{ .compatible = "fsl,l2-switch", },
+	{ /* sentinel */ }
+};
+
 static struct platform_driver eth_switch_driver = {
 	.probe          = eth_switch_probe,
 	.remove         = eth_switch_remove,
 	.driver         = {
 		.name   = "mxs-l2switch",
 		.owner  = THIS_MODULE,
+		.of_match_table = eth_switch_driver_of_match,
 	},
 };
 
 static int __init fec_l2switch_init(void)
 {
+	pr_err("%s: L2 switch", __func__);
 	return platform_driver_register(&eth_switch_driver);;
 }
 

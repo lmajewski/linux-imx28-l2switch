@@ -565,7 +565,10 @@ struct switch_enet_private {
 
 	struct net_device *netdev;
 	struct platform_device *pdev;
-	struct clk *clk;
+	struct clk *clk_ipg;
+	struct clk *clk_ahb;
+	struct clk *clk_enet_out;
+
 	/* The saved address of a sent-in-place packet/buffer, for skfree(). */
 	unsigned char *tx_bounce[TX_RING_SIZE];
 	struct  sk_buff *tx_skbuff[TX_RING_SIZE];

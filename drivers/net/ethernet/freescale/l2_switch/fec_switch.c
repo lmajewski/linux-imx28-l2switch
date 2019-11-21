@@ -3434,8 +3434,7 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
 	fep->mii_bus->priv = fep;
 	fep->mii_bus->parent = &pdev->dev;
-
-	platform_set_drvdata(dev, fep->mii_bus);
+	dev_set_drvdata(&dev->dev, fep->mii_bus);
 
 	if (mdiobus_register(fep->mii_bus))
 		goto err_out_free_mdiobus;

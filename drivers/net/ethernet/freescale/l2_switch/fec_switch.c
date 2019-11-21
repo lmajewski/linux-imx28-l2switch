@@ -3461,7 +3461,7 @@ static void fec_enet_mii_remove(struct switch_enet_private *fep)
 }
 
 static int fec_enet_get_settings(struct net_device *dev,
-				  struct ethtool_cmd *cmd)
+				 struct ethtool_link_ksettings *cmd)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
 	struct phy_device *phydev = fep->phy_dev[0];
@@ -3469,11 +3469,12 @@ static int fec_enet_get_settings(struct net_device *dev,
 	if (!phydev)
 		return -ENODEV;
 
-	return phy_ethtool_gset(phydev, cmd);
+	phy_ethtool_ksettings_get(phydev, cmd);
+	return 0;
 }
 
 static int fec_enet_set_settings(struct net_device *dev,
-				 struct ethtool_cmd *cmd)
+				 const struct ethtool_link_ksettings *cmd)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
 	struct phy_device *phydev = fep->phy_dev[0];
@@ -3481,7 +3482,7 @@ static int fec_enet_set_settings(struct net_device *dev,
 	if (!phydev)
 		return -ENODEV;
 
-	return phy_ethtool_sset(phydev, cmd);
+	return phy_ethtool_ksettings_set(phydev, cmd);
 }
 
 static void fec_enet_get_drvinfo(struct net_device *dev,
@@ -3743,8 +3744,8 @@ switch_set_mac_address(struct net_device *dev, void *p)
 }
 
 static struct ethtool_ops fec_enet_ethtool_ops = {
-	.get_settings           = fec_enet_get_settings,
-	.set_settings           = fec_enet_set_settings,
+	.get_link_ksettings     = fec_enet_get_settings,
+	.set_link_ksettings     = fec_enet_set_settings,
 	.get_drvinfo            = fec_enet_get_drvinfo,
 	.get_link               = ethtool_op_get_link,
  };

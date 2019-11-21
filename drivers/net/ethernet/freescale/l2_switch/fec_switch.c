@@ -3407,7 +3407,7 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 		struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
-	int err = -ENXIO, i;
+	int err = -ENXIO;
 
 	fep->mii_timeout = 0;
 
@@ -3435,24 +3435,13 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 	fep->mii_bus->priv = fep;
 	fep->mii_bus->parent = &pdev->dev;
 
-	fep->mii_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-	if (!fep->mii_bus->irq) {
-		err = -ENOMEM;
-		goto err_out_free_mdiobus;
-	}
-
-	for (i = 0; i < PHY_MAX_ADDR; i++)
-		fep->mii_bus->irq[i] = PHY_POLL;
-
 	platform_set_drvdata(dev, fep->mii_bus);
 
 	if (mdiobus_register(fep->mii_bus))
-		goto err_out_free_mdio_irq;
+		goto err_out_free_mdiobus;
 
 	return fep->mii_bus;
 
-err_out_free_mdio_irq:
-	kfree(fep->mii_bus->irq);
 err_out_free_mdiobus:
 	mdiobus_free(fep->mii_bus);
 err_out:

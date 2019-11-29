@@ -33,6 +33,7 @@
 #include <linux/fsl_devices.h>
 #include <linux/fec.h>
 #include <linux/phy.h>
+#include <linux/of_mdio.h>
 
 #include <asm/irq.h>
 #include <linux/uaccess.h>
@@ -3409,6 +3410,7 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 		struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
+	struct device_node *node;
 	int err = -ENXIO;
 
 	fep->mii_timeout = 0;
@@ -3436,9 +3438,14 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
 	fep->mii_bus->priv = fep;
 	fep->mii_bus->parent = &pdev->dev;
-	dev_set_drvdata(&dev->dev, fep->mii_bus);
 
-	if (mdiobus_register(fep->mii_bus))
+	node = of_get_child_by_name(pdev->dev.of_node, "mdio");
+	if (node)
+		pr_err("%s: PHY name: %s %s\n", __func__, node->name, node->full_name);
+	err = of_mdiobus_register(fep->mii_bus, node);
+	if (node)
+		of_node_put(node);
+	if (err)
 		goto err_out_free_mdiobus;
 
 	return fep->mii_bus;

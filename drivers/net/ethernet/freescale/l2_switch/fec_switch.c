@@ -41,6 +41,7 @@
 #include <asm/cacheflush.h>
 
 #include "fec_switch.h"
+#include "../fec_common.h"
 
 #define	SWITCH_MAX_PORTS	1
 
@@ -3908,8 +3909,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	/* PHY reset should be done during clock on */
 	if (plat) {
 		fep->phy_interface = plat->fec_enet->phy;
-		if (plat->fec_enet->init && plat->fec_enet->init())
-			return -EIO;
+		ret = fec_reset_phy(pdev);
 
 		/*
 		 * The priority for getting MAC address is:

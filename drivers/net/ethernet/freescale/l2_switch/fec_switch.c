@@ -2902,7 +2902,7 @@ switch_enet_interrupt(int irq, void *dev_id)
 		 *  them as part of the transmit process.
 		 */
 		if (int_events & MCF_ESW_ISR_LRN) {
-			if (readl(&fep->learning_irqhandle_enable))
+			if (fep->learning_irqhandle_enable)
 				esw_atable_dynamicms_learn_migration(
 					fep, fep->currTime);
 			ret = IRQ_HANDLED;

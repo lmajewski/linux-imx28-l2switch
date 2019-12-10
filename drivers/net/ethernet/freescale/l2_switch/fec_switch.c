@@ -2044,7 +2044,7 @@ static void esw_main(struct switch_enet_private *fep)
 	esw_mac_addr_static(fep);
 	writel(0, &fecp->ESW_BKLR);
 	writel(MCF_ESW_IMR_TXB | MCF_ESW_IMR_TXF |
-		MCF_ESW_IMR_LRN | MCF_ESW_IMR_RXB | MCF_ESW_IMR_RXF,
+		MCF_ESW_IMR_RXB | MCF_ESW_IMR_RXF,
 		&fecp->switch_imask);
 	writel(0x70007, &fecp->ESW_PER);
 	writel(MCF_ESW_DBCR_P1 | MCF_ESW_DBCR_P2, &fecp->ESW_DBCR);

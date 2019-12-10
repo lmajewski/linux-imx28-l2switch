@@ -121,7 +121,6 @@
 };
 
 &mac0 {
-	compatible = "fsl,l2-switch";
 	phy-mode = "rmii";
         pinctrl-names = "default";
         pinctrl-0 = <&mac0_pins_a>;
@@ -137,6 +136,34 @@
         pinctrl-names = "default";
         pinctrl-0 = <&mac1_pins_a>;
         status = "okay";
+};
+
+&eth_switch {
+	compatible = "fsl,l2-switch";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mac0_pins_a>, <&mac1_pins_a>;
+	phy-mode = "rmii";
+	phy-supply = <&reg_fec_3v3>;
+	phy-reset-gpios = <&gpio2 13 0>;
+	phy-reset-duration = <100>;
+	interrupts = <100>, <101>, <102>;
+	clocks = <&clks 57>, <&clks 57>, <&clks 64>;
+	clock-names = "ipg", "ahb", "enet_out";
+	status = "okay";
+
+	mdio@0 {
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethernet-phy@0 {
+			reg = <0>;
+		};
+
+		ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
 };
 
 &saif0 {

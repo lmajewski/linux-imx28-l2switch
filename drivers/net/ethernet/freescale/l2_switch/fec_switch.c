@@ -3028,7 +3028,7 @@ switch_enet_tx(struct net_device *dev)
 			dev->stats.collisions++;
 
 		/* Free the sk buffer associated with this last transmit */
-		dev_kfree_skb_any(skb);
+		dev_consume_skb_irq(skb);
 		fep->tx_skbuff[fep->skb_dirty] = NULL;
 		fep->skb_dirty = (fep->skb_dirty + 1) & TX_RING_MOD_MASK;
 

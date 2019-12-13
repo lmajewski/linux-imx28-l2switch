@@ -98,8 +98,6 @@
 /* Port 0 backpressure congestion threshold */
 #define P0BC_THRESHOLD		0x40
 
-static struct mii_bus *fec_mii_bus;
-
 static int switch_enet_open(struct net_device *dev);
 static int switch_enet_start_xmit(struct sk_buff *skb, struct net_device *dev);
 static irqreturn_t switch_enet_interrupt(int irq, void *dev_id);
@@ -3417,8 +3415,8 @@ static int fec_enet_mii_probe(struct net_device *dev)
 	return 0;
 }
 
-static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
-		struct platform_device *pdev)
+static int fec_enet_mii_init(struct net_device *dev,
+                             struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
 	struct device_node *node;
@@ -3449,12 +3447,12 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 	if (err)
 		goto err_out_free_mdiobus;
 
-	return fep->mii_bus;
+	return 0;
 
 err_out_free_mdiobus:
 	mdiobus_free(fep->mii_bus);
 err_out:
-	return ERR_PTR(err);
+	return err;
 }
 
 static void fec_enet_mii_remove(struct switch_enet_private *fep)
@@ -3834,7 +3832,7 @@ static struct switch_platform_data l2switch_data = {
 
 /* Initialize the FEC Ethernet */
 static int __init switch_enet_init(struct net_device *dev,
-	int slot, struct platform_device *pdev)
+                                   struct platform_device *pdev)
 {
 	struct switch_enet_private	*fep = netdev_priv(dev);
 	struct resource		*r;
@@ -3843,10 +3841,6 @@ static int __init switch_enet_init(struct net_device *dev,
 	struct switch_t	*fecp;
 	int	i, ret;
 	struct switch_platform_data *plat = pdev->dev.platform_data;
-
-	/* Only allow us to be probed once. */
-	if (slot >= SWITCH_MAX_PORTS)
-		return -ENXIO;
 
 	/* Allocate memory for buffer descriptors */
 	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
@@ -3882,7 +3876,7 @@ static int __init switch_enet_init(struct net_device *dev,
 
 	plat->switch_hw[1] = (unsigned long)fecp + MCF_ESW_LOOKUP_MEM_OFFSET;
 
-	fep->index = slot;
+	fep->index = 0;
 	fep->hwp = fecp;
 	fep->hwentry = (struct eswAddrTable_t *)plat->switch_hw[1];
 	fep->netdev = dev;
@@ -4434,19 +4428,15 @@ int __init eth_switch_probe(struct platform_device *pdev)
 	fep->pdev = pdev;
 	platform_set_drvdata(pdev, dev);
 
-	err = switch_enet_init(dev, 0, pdev);
+	err = switch_enet_init(dev, pdev);
 	if (err) {
 		pr_err("%s: ethernet switch init fail (%d)!\n", dev->name, err);
 		goto switch_enet_init_err;
 	}
 
-	/* Init phy bus */
-	if (pdev->id == 0) {
-		fec_mii_bus = fec_enet_mii_init(dev, pdev);
-		if (IS_ERR(fec_mii_bus))
-			printk(KERN_ERR "can't init phy bus\n");
-	} else
-		fep->mii_bus = fec_mii_bus;
+	err = fec_enet_mii_init(dev, pdev);
+	if (err)
+		pr_err("%s: Cannot init phy bus (%d)!\n", __func__, err);
 
 	/* setup timer for learning aging function */
 	timer_setup(&fep->timer_aging, l2switch_aging_timer, 0);

@@ -4420,10 +4420,9 @@ switch_stop(struct net_device *dev)
 
 int __init eth_switch_probe(struct platform_device *pdev)
 {
-	struct net_device *dev;
-	int i, err;
 	struct switch_enet_private *fep;
-	struct switch_platform_private *chip;
+	struct net_device *dev;
+	int err;
 
 	/* Hack -> port platdata to be in-driver */
 	pdev->resource = l2switch_resources;
@@ -4433,100 +4432,77 @@ int __init eth_switch_probe(struct platform_device *pdev)
 	/* ------------------ */
 
 	printk(KERN_INFO "Ethernet Switch Version 1.0\n");
-	chip = kzalloc(sizeof(struct switch_platform_private) +
-		sizeof(struct switch_enet_private *) * SWITCH_MAX_PORTS,
-		GFP_KERNEL);
-	if (!chip) {
-		err = -ENOMEM;
-		printk(KERN_ERR "%s: kzalloc fail %x\n", __func__,
-			(unsigned int)chip);
-		return err;
+
+	dev = alloc_etherdev(sizeof(struct switch_enet_private));
+	if (!dev) {
+		printk(KERN_ERR "%s: ethernet switch alloc_etherdev fail\n",
+		       dev->name);
+		return -ENOMEM;
 	}
 
-	chip->pdev = pdev;
-	chip->num_slots = SWITCH_MAX_PORTS;
-	platform_set_drvdata(pdev, chip);
+	fep = netdev_priv(dev);
+	fep->pdev = pdev;
+	platform_set_drvdata(pdev, dev);
 
-	for (i = 0; (i < chip->num_slots); i++) {
-		dev = alloc_etherdev(sizeof(struct switch_enet_private));
-		if (!dev) {
-			printk(KERN_ERR "%s: ethernet switch\
-				 alloc_etherdev fail\n",
-				dev->name);
-			return -ENOMEM;
-		}
-
-		fep = netdev_priv(dev);
-		fep->pdev = pdev;
-		printk(KERN_ERR "%s: ethernet switch port %d init\n",
-			__func__, i);
-
-		err = switch_enet_init(dev, i, pdev);
-		if (err) {
-			free_netdev(dev);
-			platform_set_drvdata(pdev, NULL);
-			kfree(chip);
-			continue;
-		}
-
-		chip->fep_host[i] = fep;
-
-		/* Init phy bus */
-		if (pdev->id == 0) {
-			fec_mii_bus = fec_enet_mii_init(dev, pdev);
-			if (IS_ERR(fec_mii_bus))
-				printk(KERN_ERR "can't init phy bus\n");
-		} else
-			fep->mii_bus = fec_mii_bus;
-
-		/* setup timer for Learning  Aging function */
-		timer_setup(&fep->timer_aging, l2switch_aging_timer, 0);
-		mod_timer(&fep->timer_aging, jiffies + LEARNING_AGING_TIMER);
-
-		/* register network device */
-		if (register_netdev(dev) != 0) {
-			free_netdev(dev);
-			platform_set_drvdata(pdev, NULL);
-			kfree(chip);
-			printk(KERN_ERR "%s: ethernet switch register_netdev fail\n",
-				dev->name);
-			return -EIO;
-		}
-
-		printk(KERN_INFO "%s: ethernet switch %pM\n",
-				dev->name, dev->dev_addr);
+	err = switch_enet_init(dev, 0, pdev);
+	if (err) {
+		pr_err("%s: ethernet switch init fail (%d)!\n", dev->name, err);
+		goto switch_enet_init_err;
 	}
+
+	/* Init phy bus */
+	if (pdev->id == 0) {
+		fec_mii_bus = fec_enet_mii_init(dev, pdev);
+		if (IS_ERR(fec_mii_bus))
+			printk(KERN_ERR "can't init phy bus\n");
+	} else
+		fep->mii_bus = fec_mii_bus;
+
+	/* setup timer for learning aging function */
+	timer_setup(&fep->timer_aging, l2switch_aging_timer, 0);
+	mod_timer(&fep->timer_aging, jiffies + LEARNING_AGING_TIMER);
+
+	/* register network device */
+	err = register_netdev(dev);
+	if (err) {
+		pr_err("%s: ethernet switch register netdev fail (%d)!\n",
+		       dev->name, err);
+		goto switch_enet_register_netdev;
+	}
+
+	pr_info("%s: ethernet switch %pM\n", dev->name, dev->dev_addr);
 
 	return 0;
+
+switch_enet_register_netdev:
+	del_timer_sync(&fep->timer_aging);
+switch_enet_init_err:
+	free_netdev(dev);
+	platform_set_drvdata(pdev, NULL);
+
+	return err;
 }
 
 static int eth_switch_remove(struct platform_device *pdev)
 {
-	int i;
-	struct net_device *dev;
+	struct net_device *dev = platform_get_drvdata(pdev);
 	struct switch_enet_private *fep;
-	struct switch_platform_private *chip;
 
-	chip = platform_get_drvdata(pdev);
-	if (chip) {
-		for (i = 0; i < chip->num_slots; i++) {
-			fep = chip->fep_host[i];
-			dev = fep->netdev;
-			fep->sequence_done = 1;
-			fec_enet_mii_remove(fep);
-			unregister_netdev(dev);
-			free_netdev(dev);
+	if (dev == NULL) {
+		pr_err("%s: ethernet switch remove fail - no device!\n",
+		       __func__);
+		return -ENODEV;
+	}
 
-			del_timer_sync(&fep->timer_aging);
-		}
+	fep = netdev_priv(dev);
 
-		platform_set_drvdata(pdev, NULL);
-		kfree(chip);
+	fep->sequence_done = 1;
+	fec_enet_mii_remove(fep);
+	unregister_netdev(dev);
+	free_netdev(dev);
 
-	} else
-		printk(KERN_ERR "%s: can not get the "
-			"switch_platform_private %x\n", __func__,
-			(unsigned int)chip);
+	del_timer_sync(&fep->timer_aging);
+	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }

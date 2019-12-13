@@ -663,14 +663,6 @@ struct switch_enet_private {
 	int	mac1_irq;
 };
 
-struct switch_platform_private {
-	struct platform_device  *pdev;
-
-	unsigned long           quirks;
-	int                     num_slots;      /* Slots on controller */
-	struct switch_enet_private *fep_host[0];      /* Pointers to hosts */
-};
-
 /******************************************************************************/
 #define FEC_IEVENT		0x004 /* Interrupt event reg */
 #define FEC_IMASK		0x008 /* Interrupt mask reg */

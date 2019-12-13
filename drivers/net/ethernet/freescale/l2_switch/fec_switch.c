@@ -4532,7 +4532,7 @@ static int eth_switch_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id eth_switch_driver_of_match[] = {
-	{ .compatible = "fsl,l2-switch", },
+	{ .compatible = "fsl,mxs-l2switch", },
 	{ /* sentinel */ }
 };
 

@@ -139,7 +139,7 @@
 };
 
 &eth_switch {
-	compatible = "fsl,l2-switch";
+	compatible = "fsl,mxs-l2switch";
 	pinctrl-names = "default";
 	pinctrl-0 = <&mac0_pins_a>, <&mac1_pins_a>;
 	phy-mode = "rmii";

@@ -192,15 +192,8 @@ static void switch_set_mii(struct net_device *dev)
 	writel(MCF_FEC_TCR_FDEN, fep->enet_addr + MCF_FEC_TCR1);
 
 	/* ECR */
-#ifdef L2SWITCH_ENHANCED_BUFFER
-	writel(MCF_FEC_ECR_ETHER_EN | MCF_FEC_ECR_ENA_1588,
-			fep->enet_addr + MCF_FEC_ECR0);
-	writel(MCF_FEC_ECR_ETHER_EN | MCF_FEC_ECR_ENA_1588,
-			fep->enet_addr + MCF_FEC_ECR1);
-#else /*legac buffer*/
 	writel(MCF_FEC_ECR_ETHER_EN, fep->enet_addr + MCF_FEC_ECR0);
 	writel(MCF_FEC_ECR_ETHER_EN, fep->enet_addr + MCF_FEC_ECR1);
-#endif
 
 	writel(FEC_ENET_TXF | FEC_ENET_RXF | FEC_ENET_MII,
 			fep->enet_addr + MCF_FEC_EIMR0);
@@ -2803,10 +2796,7 @@ switch_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	status |= (BD_ENET_TX_READY | BD_ENET_TX_INTR
 			| BD_ENET_TX_LAST | BD_ENET_TX_TC);
 	bdp->cbd_sc = status;
-#ifdef L2SWITCH_ENHANCED_BUFFER
-	bdp->bdu = 0x00000000;
-	bdp->ebd_status = TX_BD_INT | TX_BD_TS;
-#endif
+
 	netif_trans_update(dev);
 
 	/* Trigger transmission start */
@@ -3083,14 +3073,6 @@ switch_enet_rx(struct net_device *dev)
 	 * These get messed up if we get called due to a busy condition.
 	 */
 	bdp = fep->cur_rx;
-#ifdef L2SWITCH_ENHANCED_BUFFER
-	printk(KERN_INFO "%s: cbd_sc %x cbd_datlen %x cbd_bufaddr %x "
-		"ebd_status %x bdu %x length_proto_type %x "
-		"payload_checksum %x\n",
-		__func__, bdp->cbd_sc, bdp->cbd_datlen,
-		bdp->cbd_bufaddr, bdp->ebd_status, bdp->bdu,
-		bdp->length_proto_type, bdp->payload_checksum);
-#endif
 
 while (!((status = bdp->cbd_sc) & BD_ENET_RX_EMPTY)) {
 	/*
@@ -3565,10 +3547,6 @@ static int fec_enet_alloc_buffers(struct net_device *dev)
 		bdp->cbd_bufaddr = dma_map_single(&dev->dev, skb->data,
 				SWITCH_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
-#ifdef L2SWITCH_ENHANCED_BUFFER
-		bdp->ebd_status = RX_BD_INT;
-		bdp->bdu = 0x00000000;
-#endif
 		bdp++;
 	}
 
@@ -3582,10 +3560,6 @@ static int fec_enet_alloc_buffers(struct net_device *dev)
 
 		bdp->cbd_sc = 0;
 		bdp->cbd_bufaddr = 0;
-#ifdef L2SWITCH_ENHANCED_BUFFER
-		bdp->ebd_status = TX_BD_INT;
-		bdp->bdu = 0x00000000;
-#endif
 		bdp++;
 	}
 
@@ -4035,11 +4009,6 @@ static int __init switch_enet_init(struct net_device *dev,
 	bdp = fep->rx_bd_base;
 	for (i = 0; i < RX_RING_SIZE; i++) {
 		bdp->cbd_sc = 0;
-
-#ifdef L2SWITCH_ENHANCED_BUFFER
-		bdp->bdu = 0x00000000;
-		bdp->ebd_status = RX_BD_INT;
-#endif
 		bdp++;
 	}
 

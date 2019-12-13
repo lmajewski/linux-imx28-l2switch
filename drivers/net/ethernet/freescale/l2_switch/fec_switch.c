@@ -3886,11 +3886,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	fep->hwp = fecp;
 	fep->hwentry = (struct eswAddrTable_t *)plat->switch_hw[1];
 	fep->netdev = dev;
-#ifdef CONFIG_FEC_SHARED_PHY
-	fep->phy_hwp = (struct switch_t *) plat->switch_hw[slot & ~1];
-#else
 	fep->phy_hwp = fecp;
-#endif
 
 	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
 	if (IS_ERR(fep->clk_ipg))
@@ -4053,13 +4049,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	if (plat && plat->set_mii)
 		plat->set_mii(dev);
 
-
-#ifndef CONFIG_FEC_SHARED_PHY
 	fep->phy_addr = 0;
-#else
-	fep->phy_addr = fep->index;
-#endif
-
 	fep->sequence_done = 1;
 	return 0;
 

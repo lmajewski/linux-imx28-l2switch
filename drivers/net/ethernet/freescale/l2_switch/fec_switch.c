@@ -45,14 +45,7 @@
 #include "fec_switch.h"
 #include "../fec_common.h"
 
-#define	SWITCH_MAX_PORTS	1
-
-#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_ARCH_MXS)
-//#include <mach/hardware.h>
 #define FEC_ALIGNMENT   0xf
-#else
-#define FEC_ALIGNMENT   0x3
-#endif
 
 /* The number of Tx and Rx buffers.  These are allocated from the page
  * pool.  The code may assume these are power of two, so it it best
@@ -256,25 +249,10 @@ static void switch_get_mac(struct net_device *dev)
 	struct switch_enet_private *fep = netdev_priv(dev);
 	unsigned char *iap, tmpaddr[ETH_ALEN];
 	static int index;
-#ifdef CONFIG_M5272
-	if (FEC_FLASHMAC) {
-		/*
-		 * Get MAC address from FLASH.
-		 * If it is all 1's or 0's, use the default.
-		 */
-		iap = (unsigned char *)FEC_FLASHMAC;
-		if ((iap[0] == 0) && (iap[1] == 0) && (iap[2] == 0) &&
-		    (iap[3] == 0) && (iap[4] == 0) && (iap[5] == 0))
-			iap = switch_mac_default;
-		if ((iap[0] == 0xff) && (iap[1] == 0xff) && (iap[2] == 0xff) &&
-		    (iap[3] == 0xff) && (iap[4] == 0xff) && (iap[5] == 0xff))
-			iap = switch_mac_default;
-	}
-#else
-	if (is_valid_ether_addr(switch_mac_default))
+
+	if (is_valid_ether_addr(switch_mac_default)) {
 		iap = switch_mac_default;
-#endif
-	else {
+	} else {
 		*((unsigned long *) &tmpaddr[0]) =
 			be32_to_cpu(readl(fep->enet_addr
 			+ FEC_ADDR_LOW / sizeof(unsigned long)));
@@ -3890,7 +3868,6 @@ static int __init switch_enet_init(struct net_device *dev,
 
 	fep->phy_interface = ret;
 	ret = fec_reset_phy(pdev);
-	/* Enable MII mode */
 
 	/*
 	 * SWITCH CONFIGURATION

@@ -3195,6 +3195,23 @@ rx_processing_done:
 /*
  * Phy section
  */
+
+/*
+ * This is the default phy_print_status() function adjusted to show switch
+ * port number.
+ */
+static void phy_print_link_status(struct phy_device *phydev, bool link)
+{
+	if (phydev->link)
+		netdev_info(phydev->attached_dev,
+			    "Link lan%d is Up - %s/%s - flow control %s\n",
+			    link, phy_speed_to_str(phydev->speed),
+			    phy_duplex_to_str(phydev->duplex),
+			    phydev->pause ? "rx/tx" : "off");
+	else
+		netdev_info(phydev->attached_dev, "Link lan%d is Down\n", link);
+}
+
 static void switch_adjust_link0(struct net_device *dev)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
@@ -3241,7 +3258,7 @@ spin_unlock:
 	spin_unlock_irqrestore(&fep->hw_lock, flags);
 
 	if (status_change)
-		phy_print_status(phy_dev);
+		phy_print_link_status(phy_dev, 0);
 }
 
 static void switch_adjust_link1(struct net_device *dev)
@@ -3290,7 +3307,7 @@ spin_unlock:
 	spin_unlock_irqrestore(&fep->hw_lock, flags);
 
 	if (status_change)
-		phy_print_status(phy_dev);
+		phy_print_link_status(phy_dev, 1);
 }
 
 static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)

@@ -31,7 +31,6 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/fsl_devices.h>
-#include <linux/fec.h>
 #include <linux/phy.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
@@ -3793,17 +3792,6 @@ static struct resource l2switch_resources[] = {
 	},
 };
 
-/* Define the fixed address of the L2 Switch hardware. */
-static unsigned int switch_platform_hw[2] = {
-	(0x800F8000),
-	(0x800FC000),
-};
-
-static struct switch_platform_data l2switch_data = {
-	.hash_table     = 0,
-	.switch_hw      = switch_platform_hw,
-};
-
 /* Initialize the FEC Ethernet */
 static int __init switch_enet_init(struct net_device *dev,
 				   struct platform_device *pdev)
@@ -3814,7 +3802,6 @@ static int __init switch_enet_init(struct net_device *dev,
 	struct cbd_t		*cbd_base;
 	struct switch_t	*fecp;
 	int	i, ret;
-	struct switch_platform_data *plat = pdev->dev.platform_data;
 
 	/* Allocate memory for buffer descriptors */
 	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
@@ -3848,11 +3835,10 @@ static int __init switch_enet_init(struct net_device *dev,
 	fecp = (struct switch_t *)(fep->enet_addr + ENET_SWI_PHYS_ADDR_OFFSET
 		/ sizeof(unsigned long));
 
-	plat->switch_hw[1] = (unsigned long)fecp + MCF_ESW_LOOKUP_MEM_OFFSET;
-
 	fep->index = 0;
 	fep->hwp = fecp;
-	fep->hwentry = (struct eswAddrTable_t *)plat->switch_hw[1];
+	fep->hwentry = (struct eswAddrTable_t *)
+		((unsigned long)fecp + MCF_ESW_LOOKUP_MEM_OFFSET);
 	fep->netdev = dev;
 	fep->phy_hwp = fecp;
 
@@ -3934,10 +3920,6 @@ static int __init switch_enet_init(struct net_device *dev,
 	 */
 	writel(P0BC_THRESHOLD, &fecp->ESW_P0BCT);
 
-	plat->request_intrs = switch_request_intrs;
-	plat->set_mii = switch_set_mii;
-	plat->get_mac = switch_get_mac;
-
 	/*
 	 * Set the Ethernet address.  If using multiple Enets on the 8xx,
 	 * this needs some work to get unique addresses.
@@ -3945,8 +3927,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	 * This is our default MAC address unless the user changes
 	 * it via eth_mac_addr (our dev->set_mac_addr handler).
 	 */
-	if (plat && plat->get_mac)
-		plat->get_mac(dev);
+	switch_get_mac(dev);
 
 	/* Set receive and transmit descriptor base */
 	fep->rx_bd_base = cbd_base;
@@ -3980,8 +3961,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	 * Install our interrupt handlers. This varies depending on
 	 * the architecture.
 	 */
-	if (plat && plat->request_intrs)
-		plat->request_intrs(dev, switch_enet_interrupt, dev);
+	switch_request_intrs(dev, switch_enet_interrupt, dev);
 
 	if (request_irq(fep->mac0_irq, mac0_enet_interrupt, 0,
 			"enet-1588", dev))
@@ -3997,8 +3977,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	dev->ethtool_ops = &fec_enet_ethtool_ops;
 
 	/* setup MII interface */
-	if (plat && plat->set_mii)
-		plat->set_mii(dev);
+	switch_set_mii(dev);
 
 	fep->phy_addr = 0;
 	fep->sequence_done = 1;
@@ -4216,11 +4195,9 @@ static void switch_restart(struct net_device *dev, int duplex0, int duplex1)
 	struct switch_enet_private *fep;
 	struct switch_t *fecp;
 	int i;
-	struct switch_platform_data *plat;
 
 	fep = netdev_priv(dev);
 	fecp = fep->hwp;
-	plat = fep->pdev->dev.platform_data;
 	/*
 	 * Whack a reset.  We should wait for this.
 	 */
@@ -4240,9 +4217,6 @@ static void switch_restart(struct net_device *dev, int duplex0, int duplex1)
 
 	/* Clear any outstanding interrupt */
 	writel(0xffffffff, &fecp->switch_ievent);
-	/*if (plat && plat->enable_phy_intr)
-	 *	plat->enable_phy_intr();
-	 */
 
 	/* Reset all multicast */
 	/*
@@ -4340,14 +4314,12 @@ switch_stop(struct net_device *dev)
 {
 	struct switch_t *fecp;
 	struct switch_enet_private *fep;
-	struct switch_platform_data *plat;
 
 #ifdef SWITCH_DEBUG
 	printk(KERN_ERR "%s\n", __func__);
 #endif
 	fep = netdev_priv(dev);
 	fecp = fep->hwp;
-	plat = fep->pdev->dev.platform_data;
 	/* We cannot expect a graceful transmit stop without link !!! */
 	if (fep->link[0] || fep->link[1])
 		udelay(10);
@@ -4368,8 +4340,6 @@ int __init eth_switch_probe(struct platform_device *pdev)
 	/* Hack -> port platdata to be in-driver */
 	pdev->resource = l2switch_resources;
 	pdev->num_resources = ARRAY_SIZE(l2switch_resources);
-	pdev->dev.platform_data = &l2switch_data;
-	pdev->id = 0;
 	/* ------------------ */
 
 	printk(KERN_INFO "Ethernet Switch Version 1.0\n");

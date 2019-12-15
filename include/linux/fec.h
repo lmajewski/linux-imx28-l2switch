@@ -33,12 +33,6 @@ struct switch_platform_data {
 			      void *irq_privatedata);
 	void (*set_mii)(struct net_device *dev);
 	void (*get_mac)(struct net_device *dev);
-	void (*enable_phy_intr)(void);
-	void (*disable_phy_intr)(void);
-	void (*phy_ack_intr)(void);
-	void (*localhw_setup)(void);
-	void (*uncache)(unsigned long addr);
-	void (*platform_flush_cache)(void);
 };
 
 #endif

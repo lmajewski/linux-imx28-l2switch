@@ -294,30 +294,6 @@ static void switch_get_mac(struct net_device *dev)
 	}
 }
 
-static void switch_enable_phy_intr(void)
-{
-}
-
-static void switch_disable_phy_intr(void)
-{
-}
-
-static void switch_phy_ack_intr(void)
-{
-}
-
-static void switch_localhw_setup(void)
-{
-}
-
-static void switch_uncache(unsigned long addr)
-{
-}
-
-static void switch_platform_flush_cache(void)
-{
-}
-
 /*
  * Calculate Galois Field Arithmetic CRC for Polynom x^8+x^2+x+1.
  * It omits the final shift in of 8 zeroes a "normal" CRC would do
@@ -3974,12 +3950,6 @@ static int __init switch_enet_init(struct net_device *dev,
 	plat->request_intrs = switch_request_intrs;
 	plat->set_mii = switch_set_mii;
 	plat->get_mac = switch_get_mac;
-	plat->enable_phy_intr = switch_enable_phy_intr;
-	plat->disable_phy_intr = switch_disable_phy_intr;
-	plat->phy_ack_intr = switch_phy_ack_intr;
-	plat->localhw_setup = switch_localhw_setup;
-	plat->uncache = switch_uncache;
-	plat->platform_flush_cache = switch_platform_flush_cache;
 
 	/*
 	 * Set the Ethernet address.  If using multiple Enets on the 8xx,
@@ -4298,9 +4268,6 @@ static void switch_restart(struct net_device *dev, int duplex0, int duplex1)
 
 	/* Set maximum receive buffer size */
 	writel(PKT_MAXBLR_SIZE, &fecp->fec_r_buff_size);
-
-	if (plat && plat->localhw_setup)
-		plat->localhw_setup();
 
 	/* Set receive and transmit descriptor base */
 	writel(fep->bd_dma, &fecp->fec_r_des_start);

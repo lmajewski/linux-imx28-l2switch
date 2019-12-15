@@ -3906,18 +3906,7 @@ static int __init switch_enet_init(struct net_device *dev,
 		fep->phy_interface = plat->fec_enet->phy;
 		ret = fec_reset_phy(pdev);
 
-		/*
-		 * The priority for getting MAC address is:
-		 * (1) kernel command line fec_mac = xx:xx:xx...
-		 * (2) platform data mac field got from fuse etc
-		 * (3) bootloader set the FEC mac register
-		 */
 
-		if (!is_valid_ether_addr(switch_mac_default) &&
-			plat->fec_enet->mac &&
-			is_valid_ether_addr(plat->fec_enet->mac))
-			memcpy(switch_mac_default, plat->fec_enet->mac,
-						sizeof(switch_mac_default));
 	} else
 		fep->phy_interface = PHY_INTERFACE_MODE_MII;
 

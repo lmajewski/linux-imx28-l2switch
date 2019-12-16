@@ -123,14 +123,6 @@ static void *swap_buffer(void *bufaddr, int len)
 /*last read entry from learning interface*/
 struct eswPortInfo g_info;
 
-#ifdef USE_DEFAULT_SWITCH_PORT0_MAC
-static unsigned char    switch_mac_default[] = {
-	0x00, 0x08, 0x02, 0x6B, 0xA3, 0x1A,
-};
-#else
-static unsigned char    switch_mac_default[ETH_ALEN];
-#endif
-
 static void switch_request_intrs(struct net_device *dev,
 	irqreturn_t switch_net_irq_handler(int irq, void *private),
 	void *irq_privatedata)
@@ -3713,30 +3705,6 @@ static const struct net_device_ops fec_netdev_ops = {
        .ndo_tx_timeout		= switch_timeout,
        .ndo_set_mac_address	= switch_set_mac_address,
 };
-
-static int switch_mac_addr_setup(char *mac_addr)
-{
-	char *ptr, *p = mac_addr;
-	unsigned long tmp;
-	int i = 0, ret = 0;
-
-	while (p && (*p) && i < 6) {
-		ptr = strchr(p, ':');
-		if (ptr)
-			*ptr++ = '\0';
-		if (strlen(p)) {
-			ret = kstrtoul(p, 16, &tmp);
-			if (ret < 0 || tmp > 0xff)
-				break;
-			switch_mac_default[i++] = tmp;
-		}
-		p = ptr;
-	}
-
-	return 0;
-}
-
-__setup("fec_mac=", switch_mac_addr_setup);
 
 /* Initialize the FEC Ethernet */
 static int __init switch_enet_init(struct net_device *dev,

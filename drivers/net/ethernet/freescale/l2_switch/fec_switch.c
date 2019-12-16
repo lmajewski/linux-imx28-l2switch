@@ -247,12 +247,16 @@ static void switch_set_mii(struct net_device *dev)
 static void switch_get_mac(struct net_device *dev)
 {
 	struct switch_enet_private *fep = netdev_priv(dev);
-	unsigned char *iap, tmpaddr[ETH_ALEN];
-	static int index;
+	struct device_node *np = fep->pdev->dev.of_node;
+	unsigned char *iap = NULL, tmpaddr[ETH_ALEN];
 
-	if (is_valid_ether_addr(switch_mac_default)) {
-		iap = switch_mac_default;
-	} else {
+	if (np) {
+		const char *mac = of_get_mac_address(np);
+		if (mac)
+			iap = (unsigned char *) mac;
+	}
+
+	if (!is_valid_ether_addr(iap)) {
 		*((unsigned long *) &tmpaddr[0]) =
 			be32_to_cpu(readl(fep->enet_addr
 			+ FEC_ADDR_LOW / sizeof(unsigned long)));
@@ -262,14 +266,8 @@ static void switch_get_mac(struct net_device *dev)
 		iap = &tmpaddr[0];
 	}
 
-	memcpy(dev->dev_addr, iap, ETH_ALEN);
-
-	/* Adjust MAC if using default MAC address */
-	if (iap == switch_mac_default) {
-		dev->dev_addr[ETH_ALEN-1] =
-			switch_mac_default[ETH_ALEN-1] + index;
-		index++;
-	}
+	if (iap)
+		memcpy(dev->dev_addr, iap, ETH_ALEN);
 }
 
 /*
@@ -3868,11 +3866,7 @@ static int __init switch_enet_init(struct net_device *dev,
 	writel(P0BC_THRESHOLD, &fecp->ESW_P0BCT);
 
 	/*
-	 * Set the Ethernet address.  If using multiple Enets on the 8xx,
-	 * this needs some work to get unique addresses.
-	 *
-	 * This is our default MAC address unless the user changes
-	 * it via eth_mac_addr (our dev->set_mac_addr handler).
+	 * Set the Ethernet address.
 	 */
 	switch_get_mac(dev);
 

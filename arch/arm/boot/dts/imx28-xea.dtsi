@@ -149,6 +149,7 @@
 	interrupts = <100>, <101>, <102>;
 	clocks = <&clks 57>, <&clks 57>, <&clks 64>;
 	clock-names = "ipg", "ahb", "enet_out";
+	local-mac-address = [ 00 11 22 AA BB CC ];
 	status = "okay";
 
 	mdio@0 {

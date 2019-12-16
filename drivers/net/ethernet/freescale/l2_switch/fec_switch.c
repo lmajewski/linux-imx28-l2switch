@@ -3740,36 +3740,6 @@ static int switch_mac_addr_setup(char *mac_addr)
 
 __setup("fec_mac=", switch_mac_addr_setup);
 
-/* Platform data ported */
-#define MX28_SOC_IO_PHYS_BASE   0x80000000
-#define ENET_PHYS_ADDR          (MX28_SOC_IO_PHYS_BASE + 0x0F0000)
-#define IRQ_ENET_SWI            100
-#define IRQ_ENET_MAC0           101
-#define IRQ_ENET_MAC1           102
-
-static struct resource l2switch_resources[] = {
-	{
-		.start  = ENET_PHYS_ADDR,
-		.end    = ENET_PHYS_ADDR + 0x17FFC,
-		.flags  = IORESOURCE_MEM
-	},
-	{
-		.start  = IRQ_ENET_SWI,
-		.end    = IRQ_ENET_SWI,
-		.flags  = IORESOURCE_IRQ
-	},
-	{
-		.start  = IRQ_ENET_MAC0,
-		.end    = IRQ_ENET_MAC0,
-		.flags  = IORESOURCE_IRQ
-	},
-	{
-		.start  = IRQ_ENET_MAC1,
-		.end    = IRQ_ENET_MAC1,
-		.flags  = IORESOURCE_IRQ
-	},
-};
-
 /* Initialize the FEC Ethernet */
 static int __init switch_enet_init(struct net_device *dev,
 				   struct platform_device *pdev)
@@ -4313,11 +4283,6 @@ int __init eth_switch_probe(struct platform_device *pdev)
 	struct switch_enet_private *fep;
 	struct net_device *dev;
 	int err;
-
-	/* Hack -> port platdata to be in-driver */
-	pdev->resource = l2switch_resources;
-	pdev->num_resources = ARRAY_SIZE(l2switch_resources);
-	/* ------------------ */
 
 	printk(KERN_INFO "Ethernet Switch Version 1.0\n");
 

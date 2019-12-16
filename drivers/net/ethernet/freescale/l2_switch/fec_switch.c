@@ -1982,7 +1982,8 @@ static void esw_main(struct switch_enet_private *fep)
 		MCF_ESW_IMR_RXB | MCF_ESW_IMR_RXF,
 		&fecp->switch_imask);
 	writel(0x70007, &fecp->ESW_PER);
-	writel(MCF_ESW_DBCR_P1 | MCF_ESW_DBCR_P2, &fecp->ESW_DBCR);
+	writel(MCF_ESW_DBCR_P0| MCF_ESW_DBCR_P1 | MCF_ESW_DBCR_P2,
+	       &fecp->ESW_DBCR);
 }
 
 static int switch_enet_ioctl(
@@ -3685,7 +3686,8 @@ switch_set_mac_address(struct net_device *dev, void *p)
 		fep->enet_addr + MCF_FEC_PAUR1);
 
 	esw_update_atable_static(dev->dev_addr, 7, 7, fep);
-	writel(MCF_ESW_DBCR_P1 | MCF_ESW_DBCR_P2, &fecp->ESW_DBCR);
+	writel(MCF_ESW_DBCR_P0 | MCF_ESW_DBCR_P1 | MCF_ESW_DBCR_P2,
+	       &fecp->ESW_DBCR);
 
 	return 0;
 }

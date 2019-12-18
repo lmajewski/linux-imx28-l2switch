@@ -34,6 +34,7 @@
 #include <linux/fec.h>
 #include <linux/phy.h>
 #include <linux/of_mdio.h>
+#include <linux/of_net.h>
 #include <linux/regulator/consumer.h>
 
 #include <asm/irq.h>
@@ -3798,14 +3799,7 @@ static unsigned int switch_platform_hw[2] = {
 	(0x800FC000),
 };
 
-static struct fec_platform_data fec_enet = {
-	.phy = PHY_INTERFACE_MODE_RMII,
-//	.init = mx28evk_enet_gpio_init,
-};
-
 static struct switch_platform_data l2switch_data = {
-	.id             = 0,
-	.fec_enet       = &fec_enet,
 	.hash_table     = 0,
 	.switch_hw      = switch_platform_hw,
 };
@@ -3902,14 +3896,14 @@ static int __init switch_enet_init(struct net_device *dev,
 		pr_err("%s: clock clk_enet_out cannot be enabled\n", __func__);
 
 	/* PHY reset should be done during clock on */
-	if (plat) {
-		fep->phy_interface = plat->fec_enet->phy;
-		ret = fec_reset_phy(pdev);
+	ret = of_get_phy_mode(pdev->dev.of_node);
+	if (ret < 0) {
+		pr_err("%s: Cannot get PHY mode (%d)!\n", __func__, ret);
+		goto get_phy_mode_err;
+	}
 
-
-	} else
-		fep->phy_interface = PHY_INTERFACE_MODE_MII;
-
+	fep->phy_interface = ret;
+	ret = fec_reset_phy(pdev);
 	/* Enable MII mode */
 
 	/*
@@ -4010,6 +4004,9 @@ static int __init switch_enet_init(struct net_device *dev,
 	fep->sequence_done = 1;
 	return 0;
 
+ get_phy_mode_err:
+	if (fep->reg_phy)
+		regulator_disable(fep->reg_phy);
  failed_regulator:
 	if (fep->clk_enet_out)
 		clk_disable_unprepare(fep->clk_enet_out);

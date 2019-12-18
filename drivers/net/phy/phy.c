@@ -1053,7 +1053,27 @@ void phy_state_machine(struct work_struct *work)
 			phy_link_up(phydev);
 		} else {
 			phydev->state = PHY_NOLINK;
+#ifdef CONFIG_FEC_L2SWITCH
+			/*
+			 * The iMX28 L2 switch old NXP driver
+			 * (ported from 2.6.x) requires some modifications in
+			 * the core PHY driver.
+			 * As it is not using DSA subsystem/API it has eth0 net
+			 * device responsible for sending/receiving data from
+			 * the driver. I handles two PHYs (but control is only
+			 * performed via mac0.
+			 * This change causes the eth0 not being "disconnected"
+			 * (stopping transmission) when ONLY ONE cable is
+			 * removed from the switch.
+			 * There is link put down for this particular PHY, but
+			 * without notyfing the net device (eth0) about losing
+			 * the carrier (as the second switch port still
+			 * operates.
+			 */
+			phy_link_down(phydev, false);
+#else
 			phy_link_down(phydev, true);
+#endif
 		}
 		break;
 	case PHY_HALTED:

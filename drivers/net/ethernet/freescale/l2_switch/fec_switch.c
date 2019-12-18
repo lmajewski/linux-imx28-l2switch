@@ -3383,7 +3383,7 @@ static int fec_enet_mii_init(struct net_device *dev,
 	fep->mii_bus->read = fec_enet_mdio_read;
 	fep->mii_bus->write = fec_enet_mdio_write;
 	fep->mii_bus->reset = fec_enet_mdio_reset;
-	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", pdev->id);
+	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", 0);
 	fep->mii_bus->priv = fep;
 	fep->mii_bus->parent = &pdev->dev;
 

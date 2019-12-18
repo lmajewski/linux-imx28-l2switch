@@ -3723,22 +3723,20 @@ static int __init switch_enet_init(struct net_device *dev,
 	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
 			 GFP_KERNEL);
 	if (!cbd_base) {
-		printk(KERN_ERR "FEC: allocate descriptor memory failed?\n");
-		return -ENOMEM;
+		pr_err("FEC: allocate descriptor memory failed?\n");
+		ret = -ENOMEM;
+		goto dma_alloc_err;
 	}
 
 	spin_lock_init(&fep->hw_lock);
 	spin_lock_init(&fep->mii_lock);
 
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!r)
-		return -ENXIO;
-
-	r = request_mem_region(r->start, resource_size(r), pdev->name);
-	if (!r)
-		return -EBUSY;
-
-	fep->enet_addr = ioremap(r->start, resource_size(r));
+	fep->enet_addr = devm_ioremap_resource(&pdev->dev, r);
+	if (IS_ERR(fep->hwp)) {
+		ret = PTR_ERR(fep->hwp);
+		goto failed_ioremap;
+	}
 
 	dev->irq = platform_get_irq(pdev, 0);
 	fep->mac0_irq = platform_get_irq(pdev, 1);
@@ -3760,11 +3758,11 @@ static int __init switch_enet_init(struct net_device *dev,
 
 	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
 	if (IS_ERR(fep->clk_ipg))
-		return PTR_ERR(fep->clk_ipg);
+		fep->clk_ipg = NULL;
 
 	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
 	if (IS_ERR(fep->clk_ahb))
-		return PTR_ERR(fep->clk_ahb);
+		fep->clk_ahb = NULL;
 
 	fep->clk_enet_out = devm_clk_get(&pdev->dev, "enet_out");
 	if (IS_ERR(fep->clk_enet_out))
@@ -3787,11 +3785,16 @@ static int __init switch_enet_init(struct net_device *dev,
 	}
 
 	ret = clk_prepare_enable(fep->clk_ipg);
-	if (ret)
+	if (ret) {
 		pr_err("%s: clock ipg cannot be enabled\n", __func__);
+		goto failed_clk_ipg;
+	}
+
 	ret = clk_prepare_enable(fep->clk_ahb);
-	if (ret)
+	if (ret) {
 		pr_err("%s: clock ahb cannot be enabled\n", __func__);
+		goto failed_clk_ahb;
+	}
 
 	ret = clk_prepare_enable(fep->clk_enet_out);
 	if (ret)
@@ -3895,14 +3898,18 @@ static int __init switch_enet_init(struct net_device *dev,
 	return 0;
 
  get_phy_mode_err:
-	if (fep->reg_phy)
-		regulator_disable(fep->reg_phy);
- failed_regulator:
 	if (fep->clk_enet_out)
 		clk_disable_unprepare(fep->clk_enet_out);
 	clk_disable_unprepare(fep->clk_ahb);
+ failed_clk_ahb:
 	clk_disable_unprepare(fep->clk_ipg);
-
+ failed_clk_ipg:
+	if (fep->reg_phy)
+		regulator_disable(fep->reg_phy);
+ failed_regulator:
+ failed_ioremap:
+	dma_free_coherent(NULL, PAGE_SIZE, cbd_base, &fep->bd_dma);
+ dma_alloc_err:
 	return ret;
 }
 

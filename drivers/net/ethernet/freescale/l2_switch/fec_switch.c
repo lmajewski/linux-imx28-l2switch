@@ -34,6 +34,7 @@
 #include <linux/fec.h>
 #include <linux/phy.h>
 #include <linux/of_mdio.h>
+#include <linux/regulator/consumer.h>
 
 #include <asm/irq.h>
 #include <linux/uaccess.h>
@@ -3913,6 +3914,22 @@ static int __init switch_enet_init(struct net_device *dev,
 	if (IS_ERR(fep->clk_enet_out))
 		fep->clk_enet_out = NULL;
 
+	fep->reg_phy = devm_regulator_get(&pdev->dev, "phy");
+	if (!IS_ERR(fep->reg_phy)) {
+		ret = regulator_enable(fep->reg_phy);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Failed to enable phy regulator: %d\n", ret);
+			goto failed_regulator;
+		}
+	} else {
+		if (PTR_ERR(fep->reg_phy) == -EPROBE_DEFER) {
+			ret = -EPROBE_DEFER;
+			goto failed_regulator;
+		}
+		fep->reg_phy = NULL;
+	}
+
 	/* PHY reset should be done during clock on */
 	if (plat) {
 		fep->phy_interface = plat->fec_enet->phy;
@@ -4049,6 +4066,14 @@ static int __init switch_enet_init(struct net_device *dev,
 
 	fep->sequence_done = 1;
 	return 0;
+
+ failed_regulator:
+	if (fep->clk_enet_out)
+		clk_disable_unprepare(fep->clk_enet_out);
+	clk_disable_unprepare(fep->clk_ahb);
+	clk_disable_unprepare(fep->clk_ipg);
+
+	return ret;
 }
 
 static void enet_reset(struct net_device *dev, int duplex0, int duplex1)

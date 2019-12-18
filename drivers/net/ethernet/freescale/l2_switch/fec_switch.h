@@ -610,6 +610,7 @@ struct switch_enet_private {
 	int     speed;
 	int     msg_enable;
 
+	struct regulator *reg_phy;
 	/* --------------Statistics--------------------------- */
 	/* when a new element deleted a element with in
 	 * a block due to lack of space */

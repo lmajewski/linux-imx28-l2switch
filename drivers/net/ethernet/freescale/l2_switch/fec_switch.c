@@ -162,6 +162,7 @@ static void switch_set_mii(struct net_device *dev)
 	struct switch_t *fecp;
 	struct phy_device *phydev0 = fep->phy_dev[0];
 	struct phy_device *phydev1 = fep->phy_dev[1];
+	u32 mii_speed, holdtime;
 	int val;
 
 	fecp = (struct switch_t *)fep->hwp;
@@ -209,17 +210,27 @@ static void switch_set_mii(struct net_device *dev)
 	/*
 	* Set MII speed to 2.5 MHz
 	*/
-	writel(DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000) << 1,
-			fep->enet_addr + MCF_FEC_MSCR0);
-	writel(DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000) << 1,
-			fep->enet_addr + MCF_FEC_MSCR1);
+	mii_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000);
+	mii_speed--;
 
-#ifdef CONFIG_ARCH_MXS
-	/* Can't get phy(8720) ID when set to 2.5M on MX28, lower it*/
-	fep->phy_speed = readl(fep->enet_addr + MCF_FEC_MSCR0) << 2;
+	/*
+	 * The i.MX28 and i.MX6 types have another filed in the MSCR (aka
+	 * MII_SPEED) register that defines the MDIO output hold time. Earlier
+	 * versions are RAZ there, so just ignore the difference and write the
+	 * register always.
+	 * The minimal hold time according to IEE802.3 (clause 22) is 10 ns.
+	 * HOLDTIME + 1 is the number of clk cycles the fec is holding the
+	 * output.
+	 * The HOLDTIME bitfield takes values between 0 and 7 (inclusive).
+	 * Given that ceil(clkrate / 5000000) <= 64, the calculation for
+	 * holdtime cannot result in a value greater than 3.
+	 */
+	holdtime = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 100000000) - 1;
+
+	fep->phy_speed = mii_speed << 1 | holdtime << 8;
+
 	writel(fep->phy_speed, fep->enet_addr + MCF_FEC_MSCR0);
 	writel(fep->phy_speed, fep->enet_addr + MCF_FEC_MSCR1);
-#endif
 
 #ifdef FEC_MIIGSK_ENR
 	if (fep->phy_interface == PHY_INTERFACE_MODE_RMII) {
@@ -3416,16 +3427,6 @@ static struct mii_bus *fec_enet_mii_init(struct net_device *dev,
 
 	fep->mii_timeout = 0;
 
-	/*
-	 * Set MII speed to 2.5 MHz (= clk_get_rate() / 2 * phy_speed)
-	 */
-	fep->phy_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000) << 1;
-#ifdef CONFIG_ARCH_MXS
-	/* Can't get phy(8720) ID when set to 2.5M on MX28, lower it */
-	fep->phy_speed <<= 2;
-#endif
-	writel(fep->phy_speed, fep->enet_addr + FEC_MII_SPEED / 4);
-
 	fep->mii_bus = mdiobus_alloc();
 	if (fep->mii_bus == NULL) {
 		err = -ENOMEM;
@@ -3904,8 +3905,6 @@ static int __init switch_enet_init(struct net_device *dev,
 	if (IS_ERR(fep->clk_ipg))
 		return PTR_ERR(fep->clk_ipg);
 
-	ret = clk_prepare_enable(fep->clk_ipg);
-
 	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
 	if (IS_ERR(fep->clk_ahb))
 		return PTR_ERR(fep->clk_ahb);
@@ -3929,6 +3928,17 @@ static int __init switch_enet_init(struct net_device *dev,
 		}
 		fep->reg_phy = NULL;
 	}
+
+	ret = clk_prepare_enable(fep->clk_ipg);
+	if (ret)
+		pr_err("%s: clock ipg cannot be enabled\n", __func__);
+	ret = clk_prepare_enable(fep->clk_ahb);
+	if (ret)
+		pr_err("%s: clock ahb cannot be enabled\n", __func__);
+
+	ret = clk_prepare_enable(fep->clk_enet_out);
+	if (ret)
+		pr_err("%s: clock clk_enet_out cannot be enabled\n", __func__);
 
 	/* PHY reset should be done during clock on */
 	if (plat) {
@@ -4103,13 +4113,14 @@ static void enet_reset(struct net_device *dev, int duplex0, int duplex1)
 			fep->enet_addr + MCF_FEC_ETDSR0);
 	writel((unsigned long)fep->bd_dma + sizeof(struct cbd_t) * RX_RING_SIZE,
 			fep->enet_addr + MCF_FEC_ETDSR1);
+
 #ifdef CONFIG_ARCH_MXS
-	/* Can't get phy(8720) ID when set to 2.5M on MX28, lower it */
 	writel(fep->phy_speed,
 			fep->enet_addr + MCF_FEC_MSCR0);
 	writel(fep->phy_speed,
 			fep->enet_addr + MCF_FEC_MSCR1);
 #endif
+
 	fep->full_duplex[0] = duplex0;
 	fep->full_duplex[1] = duplex1;
 

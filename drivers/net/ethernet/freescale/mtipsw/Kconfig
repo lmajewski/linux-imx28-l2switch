@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config FEC_MTIP_L2SW
+	tristate "MoreThanIP L2 switch support to FEC driver"
+	depends on OF
+	depends on NET_SWITCHDEV
+	depends on BRIDGE
+	depends on ARCH_MXS
+	select FIXED_PHY
+	help
+	  This enables support for the MoreThan IP on i.MX SoCs (e.g. iMX28)
+	  L2 switch.

@@ -55,6 +55,14 @@
 			regulator-boot-on;
 		};
 	};
+
+	gpiosync {
+		compatible = "syncgpio";
+		period = <10000000>;
+		max-deviation = <20>;
+		status = "okay";
+		gpios = <&gpio0 21 0>;
+	};
 };
 
 &duart {
@@ -140,6 +148,18 @@
 				reg = <0x500000 0x800000>;
 			};
 		};
+	};
+
+	lwecomm1: iocom@1 {
+		compatible = "lwecomm";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <6000000>;
+		spi-cpha;
+		reg = <1>;
+		cs-gpio = <&gpio3 9 GPIO_ACTIVE_LOW>;
+		rdy-gpio = <&gpio0 25 GPIO_ACTIVE_LOW>;
+		pktsize = <256>;
 	};
 };
 

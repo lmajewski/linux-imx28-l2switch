@@ -89,6 +89,20 @@
 	gpio = <&gpio0 2 0>;
 };
 
+&ssp2 {
+	lwecomm0: iocom@0 {
+		compatible = "lwecomm";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <6000000>;
+		spi-cpha;
+		reg = <0>;
+		cs-gpio = <&gpio2 19 GPIO_ACTIVE_LOW>;
+		rdy-gpio = <&gpio0 23 GPIO_ACTIVE_LOW>;
+		pktsize = <256>;
+	};
+};
+
 &spi2_pins_a {
 	fsl,pinmux-ids = <
 		MX28_PAD_SSP2_SCK__SSP2_SCK

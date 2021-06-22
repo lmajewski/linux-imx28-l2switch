@@ -23,6 +23,48 @@
 	status = "okay";
 };
 
+&mac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mac0_pins_a>;
+	phy-mode = "rmii";
+	phy-supply = <&reg_fec_3v3>;
+	phy-reset-gpios = <&gpio2 13 0>;
+	phy-reset-duration = <100>;
+	local-mac-address = [ 00 11 22 AA BB CC ];
+	status = "okay";
+};
+
+&mac1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mac1_pins_a>;
+	phy-mode = "rmii";
+	phy-supply = <&reg_fec_3v3>;
+	local-mac-address = [ 00 11 22 AA BB DD ];
+	status = "okay";
+};
+
+&eth_switch {
+	compatible = "imx,mtip-l2switch";
+	reg = <0x800f8000 0x400>, <0x800fC000 0x4000>,  <0x800f8400 0x400>;
+
+	interrupts = <100>;
+	status = "okay";
+
+	ports {
+		port1@1 {
+			reg = <1>;
+			label = "eth0";
+			phy-handle = <&mac0>;
+		};
+
+		port2@2 {
+			reg = <2>;
+			label = "eth1";
+			phy-handle = <&mac1>;
+		};
+	};
+};
+
 &pinctrl {
 	pinctrl-names = "default";
 	pinctrl-0 = <&hog_pins_a &hog_pins_tiva>;

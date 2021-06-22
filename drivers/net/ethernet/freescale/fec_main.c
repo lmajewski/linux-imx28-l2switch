@@ -69,6 +69,9 @@
 #include <asm/cacheflush.h>
 
 #include "fec.h"
+#ifdef CONFIG_FEC_MTIP_L2SW
+#include "./mtipsw/fec_mtip.h"
+#endif
 
 static void set_multicast_list(struct net_device *ndev);
 static void fec_enet_itr_coal_init(struct net_device *ndev);
@@ -99,9 +102,11 @@ static const struct fec_devinfo fec_imx27_info = {
 
 static const struct fec_devinfo fec_imx28_info = {
 	.quirks = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME |
-		  FEC_QUIRK_SINGLE_MDIO | FEC_QUIRK_HAS_RACC |
-		  FEC_QUIRK_HAS_FRREG | FEC_QUIRK_CLEAR_SETUP_MII |
-		  FEC_QUIRK_NO_HARD_RESET,
+		  FEC_QUIRK_SINGLE_MDIO | FEC_QUIRK_HAS_FRREG |
+#ifndef CONFIG_FEC_MTIP_L2SW
+		  FEC_QUIRK_HAS_RACC |
+#endif
+		  FEC_QUIRK_CLEAR_SETUP_MII | FEC_QUIRK_NO_HARD_RESET,
 };
 
 static const struct fec_devinfo fec_imx6q_info = {
@@ -277,6 +282,46 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
 	(addr < txq->tso_hdrs_dma + txq->bd.ring_size * TSO_HEADER_SIZE))
 
 static int mii_cnt;
+
+static inline const unsigned short
+offset_des_start_rxq(struct fec_enet_private *fep, int i)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return FEC_MTIP_R_DES_START_0;
+#endif
+	return FEC_R_DES_START(i);
+}
+
+static inline const u32
+fec_rx_disabled_imask(struct fec_enet_private *fep)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return FEC_MTIP_RX_DISABLED_IMASK;
+#endif
+	return FEC_RX_DISABLED_IMASK;
+}
+
+static inline const u32
+fec_default_imask(struct fec_enet_private *fep)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return FEC_MTIP_DEFAULT_IMASK;
+#endif
+	return FEC_DEFAULT_IMASK;
+}
+
+static inline const unsigned short
+offset_des_start_txq(struct fec_enet_private *fep, int i)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return FEC_MTIP_X_DES_START_0;
+#endif
+	return FEC_X_DES_START(i);
+}
 
 static struct bufdesc *fec_enet_get_nextdesc(struct bufdesc *bdp,
 					     struct bufdesc_prop *bd)
@@ -898,8 +943,9 @@ static void fec_enet_enable_ring(struct net_device *ndev)
 
 	for (i = 0; i < fep->num_rx_queues; i++) {
 		rxq = fep->rx_queue[i];
-		writel(rxq->bd.dma, fep->hwp + FEC_R_DES_START(i));
-		writel(PKT_MAXBUF_SIZE, fep->hwp + FEC_R_BUFF_SIZE(i));
+		writel(rxq->bd.dma, fec_hwp(fep) +
+		       offset_des_start_rxq(fep, i));
+		writel(PKT_MAXBUF_SIZE, fec_hwp(fep) + FEC_R_BUFF_SIZE(i));
 
 		/* enable DMA1/2 */
 		if (i)
@@ -909,8 +955,8 @@ static void fec_enet_enable_ring(struct net_device *ndev)
 
 	for (i = 0; i < fep->num_tx_queues; i++) {
 		txq = fep->tx_queue[i];
-		writel(txq->bd.dma, fep->hwp + FEC_X_DES_START(i));
-
+		writel(txq->bd.dma, fec_hwp(fep) +
+		       offset_des_start_txq(fep, i));
 		/* enable DMA1/2 */
 		if (i)
 			writel(DMA_CLASS_EN | IDLE_SLOPE(i),
@@ -1117,9 +1163,9 @@ fec_restart(struct net_device *ndev)
 
 	/* Enable interrupts we wish to service */
 	if (fep->link)
-		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+		writel(fec_default_imask(fep), fec_hwp(fep) + FEC_IMASK);
 	else
-		writel(0, fep->hwp + FEC_IMASK);
+		writel(0, fec_hwp(fep) + FEC_IMASK);
 
 	/* Init the interrupt coalescing */
 	fec_enet_itr_coal_init(ndev);
@@ -1170,9 +1216,10 @@ fec_stop(struct net_device *ndev)
 			writel(1, fep->hwp + FEC_ECNTRL);
 			udelay(10);
 		}
-		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+		writel(fec_default_imask(fep), fec_hwp(fep) + FEC_IMASK);
 	} else {
-		writel(FEC_DEFAULT_IMASK | FEC_ENET_WAKEUP, fep->hwp + FEC_IMASK);
+		writel(fec_default_imask(fep) | FEC_ENET_WAKEUP,
+		       fec_hwp(fep) + FEC_IMASK);
 		val = readl(fep->hwp + FEC_ECNTRL);
 		val |= (FEC_ECR_MAGICEN | FEC_ECR_SLEEP);
 		writel(val, fep->hwp + FEC_ECNTRL);
@@ -1413,7 +1460,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
 	unsigned short status;
 	struct  sk_buff *skb_new = NULL;
 	struct  sk_buff *skb;
-	ushort	pkt_len;
+	ushort	pkt_len, l2pl;
 	__u8 *data;
 	int	pkt_received = 0;
 	struct	bufdesc_ex *ebdp = NULL;
@@ -1439,7 +1486,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
 			break;
 		pkt_received++;
 
-		writel(FEC_ENET_RXF, fep->hwp + FEC_IEVENT);
+		writel(FEC_ENET_RXF, fec_hwp(fep) + FEC_IEVENT);
 
 		/* Check for errors. */
 		status ^= BD_ENET_RX_LAST;
@@ -1479,7 +1526,17 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
 		 * include that when passing upstream as it messes up
 		 * bridging applications.
 		 */
-		is_copybreak = fec_enet_copybreak(ndev, &skb, bdp, pkt_len - 4,
+		/*
+		 * When the L2 switch support is enabled the FCS is removed
+		 * by it and hence the pkt_len shall be passed without
+		 * substracting 4 bytes.
+		 */
+		l2pl = pkt_len - 4;
+#ifdef CONFIG_FEC_MTIP_L2SW
+		if (fep->mtip_l2sw)
+			l2pl = pkt_len;
+#endif
+		is_copybreak = fec_enet_copybreak(ndev, &skb, bdp, l2pl,
 						  need_swap);
 		if (!is_copybreak) {
 			skb_new = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
@@ -1494,7 +1551,7 @@ fec_enet_rx_queue(struct net_device *ndev, int budget, u16 queue_id)
 		}
 
 		prefetch(skb->data - NET_IP_ALIGN);
-		skb_put(skb, pkt_len - 4);
+		skb_put(skb, l2pl);
 		data = skb->data;
 
 		if (!is_copybreak && need_swap)
@@ -1654,7 +1711,7 @@ static int fec_enet_rx_napi(struct napi_struct *napi, int budget)
 
 	if (done < budget) {
 		napi_complete_done(napi, done);
-		writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+		writel(fec_default_imask(fep), fec_hwp(fep) + FEC_IMASK);
 	}
 
 	return done;
@@ -2971,7 +3028,7 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
 	return 0;
 }
 
-static int
+int
 fec_enet_open(struct net_device *ndev)
 {
 	struct fec_enet_private *fep = netdev_priv(ndev);
@@ -3042,8 +3099,9 @@ clk_enable:
 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(fec_enet_open)
 
-static int
+int
 fec_enet_close(struct net_device *ndev)
 {
 	struct fec_enet_private *fep = netdev_priv(ndev);
@@ -3072,6 +3130,7 @@ fec_enet_close(struct net_device *ndev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(fec_enet_close);
 
 /* Set or clear the multicast filter for this adaptor.
  * Skeleton taken from sunlance driver.
@@ -3240,13 +3299,44 @@ static const struct net_device_ops fec_netdev_ops = {
 	.ndo_set_features	= fec_set_features,
 };
 
-static const unsigned short offset_des_active_rxq[] = {
+#ifdef CONFIG_FEC_MTIP_L2SW
+struct fec_enet_private *fec_get_priv(const struct net_device *ndev)
+{
+	if (ndev->netdev_ops == &fec_netdev_ops)
+		return netdev_priv(ndev);
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(fec_get_priv)
+#endif
+
+static const unsigned short __offset_des_active_rxq[] = {
 	FEC_R_DES_ACTIVE_0, FEC_R_DES_ACTIVE_1, FEC_R_DES_ACTIVE_2
 };
 
-static const unsigned short offset_des_active_txq[] = {
+static const unsigned short __offset_des_active_txq[] = {
 	FEC_X_DES_ACTIVE_0, FEC_X_DES_ACTIVE_1, FEC_X_DES_ACTIVE_2
 };
+
+const unsigned short
+fec_offset_des_active_rxq(struct fec_enet_private *fep, int i)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return FEC_MTIP_R_DES_ACTIVE_0;
+#endif
+	return __offset_des_active_rxq[i];
+}
+
+const unsigned short
+fec_offset_des_active_txq(struct fec_enet_private *fep, int i)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return FEC_MTIP_X_DES_ACTIVE_0;
+#endif
+	return __offset_des_active_txq[i];
+}
 
  /*
   * XXX:  We need to clean up on failure exits here.
@@ -3307,7 +3397,8 @@ static int fec_enet_init(struct net_device *ndev)
 		rxq->bd.dma = bd_dma;
 		rxq->bd.dsize = dsize;
 		rxq->bd.dsize_log2 = dsize_log2;
-		rxq->bd.reg_desc_active = fep->hwp + offset_des_active_rxq[i];
+		rxq->bd.reg_desc_active =
+			fec_hwp(fep) + fec_offset_des_active_rxq(fep, i);
 		bd_dma += size;
 		cbd_base = (struct bufdesc *)(((void *)cbd_base) + size);
 		rxq->bd.last = (struct bufdesc *)(((void *)cbd_base) - dsize);
@@ -3323,7 +3414,8 @@ static int fec_enet_init(struct net_device *ndev)
 		txq->bd.dma = bd_dma;
 		txq->bd.dsize = dsize;
 		txq->bd.dsize_log2 = dsize_log2;
-		txq->bd.reg_desc_active = fep->hwp + offset_des_active_txq[i];
+		txq->bd.reg_desc_active =
+			fec_hwp(fep) + fec_offset_des_active_txq(fep, i);
 		bd_dma += size;
 		cbd_base = (struct bufdesc *)(((void *)cbd_base) + size);
 		txq->bd.last = (struct bufdesc *)(((void *)cbd_base) - dsize);
@@ -3334,8 +3426,7 @@ static int fec_enet_init(struct net_device *ndev)
 	ndev->watchdog_timeo = TX_TIMEOUT;
 	ndev->netdev_ops = &fec_netdev_ops;
 	ndev->ethtool_ops = &fec_enet_ethtool_ops;
-
-	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+	writel(fec_rx_disabled_imask(fep), fec_hwp(fep) + FEC_IMASK);
 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, NAPI_POLL_WEIGHT);
 
 	if (fep->quirks & FEC_QUIRK_HAS_VLAN)

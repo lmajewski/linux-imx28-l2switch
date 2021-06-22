@@ -29,6 +29,10 @@
  */
 #define FEC_IEVENT		0x004 /* Interrupt event reg */
 #define FEC_IMASK		0x008 /* Interrupt mask reg */
+#ifdef CONFIG_FEC_MTIP_L2SW
+#define FEC_MTIP_R_DES_ACTIVE_0	0x018 /* L2 switch Receive descriptor reg */
+#define FEC_MTIP_X_DES_ACTIVE_0	0x01C /* L2 switch Transmit descriptor reg */
+#endif
 #define FEC_R_DES_ACTIVE_0	0x010 /* Receive descriptor reg */
 #define FEC_X_DES_ACTIVE_0	0x014 /* Transmit descriptor reg */
 #define FEC_ECNTRL		0x024 /* Ethernet control reg */
@@ -59,6 +63,10 @@
 #define FEC_R_DES_START_2	0x16c /* Receive descriptor ring 2 */
 #define FEC_X_DES_START_2	0x170 /* Transmit descriptor ring 2 */
 #define FEC_R_BUFF_SIZE_2	0x174 /* Maximum receive buff ring2 size */
+#ifdef CONFIG_FEC_MTIP_L2SW
+#define FEC_MTIP_R_DES_START_0  0x0C /* L2 switch Receive descriptor ring */
+#define FEC_MTIP_X_DES_START_0	0x10 /* L2 switch Transmit descriptor ring */
+#endif
 #define FEC_R_DES_START_0	0x180 /* Receive descriptor ring */
 #define FEC_X_DES_START_0	0x184 /* Transmit descriptor ring */
 #define FEC_R_BUFF_SIZE_0	0x188 /* Maximum receive buff size */
@@ -376,6 +384,12 @@ struct bufdesc_ex {
 #define FEC_ENET_TS_AVAIL       ((uint)0x00010000)
 #define FEC_ENET_TS_TIMER       ((uint)0x00008000)
 
+#ifdef CONFIG_FEC_MTIP_L2SW
+#define FEC_MTIP_ENET_TXF ((uint)0x00000010)	/* Full frame transmitted */
+#define FEC_MTIP_ENET_RXF ((uint)0x00000004)	/* Full frame received */
+#define FEC_MTIP_DEFAULT_IMASK (FEC_MTIP_ENET_TXF | FEC_MTIP_ENET_RXF)
+#define FEC_MTIP_RX_DISABLED_IMASK (FEC_MTIP_DEFAULT_IMASK & (~FEC_MTIP_ENET_RXF))
+#endif
 #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF)
 #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
 
@@ -595,9 +609,31 @@ struct fec_enet_private {
 	int pps_enable;
 	unsigned int next_counter;
 
+#ifdef CONFIG_FEC_MTIP_L2SW
+	/* More Than IP L2 switch */
+	void __iomem *hwpsw;
+	struct mtipl2sw_priv *mtipl2;
+	bool mtip_l2sw;
+#endif
 	u64 ethtool_stats[];
 };
 
+/* MTIP L2 switch */
+/* Get proper base address for either L2 switch or MAC ENET */
+static inline void __iomem *fec_hwp(struct fec_enet_private *fep)
+{
+#ifdef CONFIG_FEC_MTIP_L2SW
+	if (fep->mtip_l2sw)
+		return fep->hwpsw;
+#endif
+	return fep->hwp;
+}
+
+int fec_enet_close(struct net_device *ndev);
+int fec_enet_open(struct net_device *ndev);
+const unsigned short fec_offset_des_active_rxq(struct fec_enet_private *, int);
+const unsigned short fec_offset_des_active_txq(struct fec_enet_private *, int);
+struct fec_enet_private *fec_get_priv(const struct net_device *ndev);
 void fec_ptp_init(struct platform_device *pdev, int irq_idx);
 void fec_ptp_stop(struct platform_device *pdev);
 void fec_ptp_start_cyclecounter(struct net_device *ndev);

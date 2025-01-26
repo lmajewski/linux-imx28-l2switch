@@ -157,6 +157,24 @@
 	status = "okay";
 };
 
+&eth_switch {
+	status = "okay";
+
+	ports {
+		port1@1 {
+			reg = <1>;
+			label = "eth0";
+			phy-handle = <&fec0>;
+		};
+
+		port2@2 {
+			reg = <2>;
+			label = "eth1";
+			phy-handle = <&fec1>;
+		};
+	};
+};
+
 &fec0 {
 	phy-mode = "rmii";
 	phy-handle = <&ethphy0>;

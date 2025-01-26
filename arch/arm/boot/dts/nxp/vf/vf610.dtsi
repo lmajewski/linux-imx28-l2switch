@@ -18,3 +18,20 @@
 		arm,tag-latency = <2 2 2>;
 	};
 };
+
+&aips1 {
+	eth_switch: switch@400e8000 {
+		compatible = "nxp,imx28-mtip-switch";
+		reg = <0x400e8000 0x8000 0x400d0000 0x2000>;
+		interrupts = <82 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "mtipl2sw";
+		clocks = <&clks VF610_CLK_ESW>,
+					<&clks VF610_CLK_ESW_MAC_TAB>,
+					<&clks VF610_CLK_ENET>,
+					<&clks VF610_CLK_ENET0>,
+					<&clks VF610_CLK_ENET1>,
+                                        <&clks VF610_CLK_ENET_50M>;
+		clock-names = "esw", "esw_tab", "enet", "enet0", "enet1", "rmii-ref";
+		status = "disabled";
+	};
+};

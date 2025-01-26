@@ -18,3 +18,24 @@
 		arm,tag-latency = <2 2 2>;
 	};
 };
+
+&aips1 {
+	eth_switch: switch@400e8000 {
+		compatible = "nxp,vf610-mtip-switch";
+		reg = <0x400e8000 0x8000 0x400d0000 0x2000>;
+		interrupts = <82 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "enet_switch";
+		clocks = <&clks VF610_CLK_ESW>,
+				<&clks VF610_CLK_ESW_MAC_TAB0>,
+				<&clks VF610_CLK_ESW_MAC_TAB1>,
+				<&clks VF610_CLK_ESW_MAC_TAB2>,
+				<&clks VF610_CLK_ESW_MAC_TAB3>,
+				<&clks VF610_CLK_ENET0>,
+				<&clks VF610_CLK_ENET0>,
+				<&clks VF610_CLK_ENET1>,
+				<&clks VF610_CLK_ENET1>,
+				<&clks VF610_CLK_ENET>;
+		clock-names = "esw", "esw_tab0", "esw_tab1", "esw_tab2", "esw_tab3", "ipg", "ahb", "ipg1", "ahb1", "ptp";
+		status = "disabled";
+	};
+};

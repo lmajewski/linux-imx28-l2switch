@@ -8334,6 +8334,13 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/i2c/i2c-mpc.yaml
 F:	drivers/i2c/busses/i2c-mpc.c
 
+FREESCALE MTIP ETHERNET SWITCH DRIVER
+M:	Lukasz Majewski <lukasz.majewski@mailbox.org>
+L:	netdev@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/net/nxp,imx28-mtip-switch.yaml
+F:	drivers/net/ethernet/freescale/mtipsw/*
+
 FREESCALE QORIQ DPAA ETHERNET DRIVER
 M:	Madalin Bucur <madalin.bucur@nxp.com>
 L:	netdev@vger.kernel.org

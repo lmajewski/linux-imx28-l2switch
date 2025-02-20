@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config FEC_MTIP_L2SW
+	tristate "MoreThanIP L2 switch support to FEC driver"
+	depends on OF
+	depends on NET_SWITCHDEV
+	depends on BRIDGE
+	depends on SOC_IMX28 || COMPILE_TEST
+	help
+	  This enables support for the MoreThanIP L2 switch on i.MX
+	  SoCs (e.g. i.MX287). It offloads bridging to this IP block's
+	  hardware and allows switch management with standard Linux tools.
+	  This switch driver can be used interchangeably with the already
+	  available FEC driver, depending on the use case's requirements.

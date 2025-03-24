@@ -28,12 +28,11 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
-#include <linux/fec.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_net.h>
 
-#include "fec.h"
+#include "mtipsw/mtipl2sw.h"
 
 /* FEC 1588 register bits */
 #define FEC_T_CTRL_SLAVE                0x00002000
@@ -99,28 +98,28 @@
  */
 static u64 fec_ptp_read(const struct cyclecounter *cc)
 {
-	struct fec_enet_private *fep =
-		container_of(cc, struct fec_enet_private, cc);
+	struct switch_enet_private *fep =
+		container_of(cc, struct switch_enet_private, cc);
 	u32 tempval;
 
-	tempval = readl(fep->hwp + FEC_ATIME_CTRL);
+	tempval = readl(fep->hwp_enet + FEC_ATIME_CTRL);
 	tempval |= FEC_T_CTRL_CAPTURE;
-	writel(tempval, fep->hwp + FEC_ATIME_CTRL);
+	writel(tempval, fep->hwp_enet + FEC_ATIME_CTRL);
 
 	if (fep->quirks & FEC_QUIRK_BUG_CAPTURE)
 		udelay(1);
 
-	return readl(fep->hwp + FEC_ATIME);
+	return readl(fep->hwp_enet + FEC_ATIME);
 }
 
 /**
  * fec_ptp_enable_pps
- * @fep: the fec_enet_private structure handle
+ * @fep: the switch_enet_private structure handle
  * @enable: enable the channel pps output
  *
  * This function enble the PPS ouput on the timer channel.
  */
-static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
+static int fec_ptp_enable_pps(struct switch_enet_private *fep, uint enable)
 {
 	unsigned long flags;
 	u32 val, tempval;
@@ -143,17 +142,17 @@ static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
 	if (enable) {
 		/* clear capture or output compare interrupt status if have.
 		 */
-		writel(FEC_T_TF_MASK, fep->hwp + FEC_TCSR(fep->pps_channel));
+		writel(FEC_T_TF_MASK, fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 
 		/* It is recommended to double check the TMODE field in the
 		 * TCSR register to be cleared before the first compare counter
 		 * is written into TCCR register. Just add a double check.
 		 */
-		val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
+		val = readl(fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 		do {
 			val &= ~(FEC_T_TMODE_MASK);
-			writel(val, fep->hwp + FEC_TCSR(fep->pps_channel));
-			val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
+			writel(val, fep->hwp_enet + FEC_TCSR(fep->pps_channel));
+			val = readl(fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 		} while (val & FEC_T_TMODE_MASK);
 
 		/* Dummy read counter to update the counter */
@@ -195,31 +194,31 @@ static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
 		 * is bigger than fep->cc.mask would be a error.
 		 */
 		val &= fep->cc.mask;
-		writel(val, fep->hwp + FEC_TCCR(fep->pps_channel));
+		writel(val, fep->hwp_enet + FEC_TCCR(fep->pps_channel));
 
 		/* Calculate the second the compare event timestamp */
 		fep->next_counter = (val + fep->reload_period) & fep->cc.mask;
 
 		/* * Enable compare event when overflow */
-		val = readl(fep->hwp + FEC_ATIME_CTRL);
+		val = readl(fep->hwp_enet + FEC_ATIME_CTRL);
 		val |= FEC_T_CTRL_PINPER;
-		writel(val, fep->hwp + FEC_ATIME_CTRL);
+		writel(val, fep->hwp_enet + FEC_ATIME_CTRL);
 
 		/* Compare channel setting. */
-		val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
+		val = readl(fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 		val |= (1 << FEC_T_TF_OFFSET | 1 << FEC_T_TIE_OFFSET);
 		val &= ~(1 << FEC_T_TDRE_OFFSET);
 		val &= ~(FEC_T_TMODE_MASK);
 		val |= (FEC_HIGH_PULSE << FEC_T_TMODE_OFFSET);
-		writel(val, fep->hwp + FEC_TCSR(fep->pps_channel));
+		writel(val, fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 
 		/* Write the second compare event timestamp and calculate
 		 * the third timestamp. Refer the TCCR register detail in the spec.
 		 */
-		writel(fep->next_counter, fep->hwp + FEC_TCCR(fep->pps_channel));
+		writel(fep->next_counter, fep->hwp_enet + FEC_TCCR(fep->pps_channel));
 		fep->next_counter = (fep->next_counter + fep->reload_period) & fep->cc.mask;
 	} else {
-		writel(0, fep->hwp + FEC_TCSR(fep->pps_channel));
+		writel(0, fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 	}
 
 	fep->pps_enable = enable;
@@ -228,7 +227,7 @@ static int fec_ptp_enable_pps(struct fec_enet_private *fep, uint enable)
 	return 0;
 }
 
-static int fec_ptp_pps_perout(struct fec_enet_private *fep)
+static int fec_ptp_pps_perout(struct switch_enet_private *fep)
 {
 	u32 compare_val, ptp_hc, temp_val;
 	u64 curr_time;
@@ -259,26 +258,26 @@ static int fec_ptp_pps_perout(struct fec_enet_private *fep)
 	compare_val = fep->perout_stime - curr_time + ptp_hc;
 	compare_val &= fep->cc.mask;
 
-	writel(compare_val, fep->hwp + FEC_TCCR(fep->pps_channel));
+	writel(compare_val, fep->hwp_enet + FEC_TCCR(fep->pps_channel));
 	fep->next_counter = (compare_val + fep->reload_period) & fep->cc.mask;
 
 	/* Enable compare event when overflow */
-	temp_val = readl(fep->hwp + FEC_ATIME_CTRL);
+	temp_val = readl(fep->hwp_enet + FEC_ATIME_CTRL);
 	temp_val |= FEC_T_CTRL_PINPER;
-	writel(temp_val, fep->hwp + FEC_ATIME_CTRL);
+	writel(temp_val, fep->hwp_enet + FEC_ATIME_CTRL);
 
 	/* Compare channel setting. */
-	temp_val = readl(fep->hwp + FEC_TCSR(fep->pps_channel));
+	temp_val = readl(fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 	temp_val |= (1 << FEC_T_TF_OFFSET | 1 << FEC_T_TIE_OFFSET);
 	temp_val &= ~(1 << FEC_T_TDRE_OFFSET);
 	temp_val &= ~(FEC_T_TMODE_MASK);
 	temp_val |= (FEC_TMODE_TOGGLE << FEC_T_TMODE_OFFSET);
-	writel(temp_val, fep->hwp + FEC_TCSR(fep->pps_channel));
+	writel(temp_val, fep->hwp_enet + FEC_TCSR(fep->pps_channel));
 
 	/* Write the second compare event timestamp and calculate
 	 * the third timestamp. Refer the TCCR register detail in the spec.
 	 */
-	writel(fep->next_counter, fep->hwp + FEC_TCCR(fep->pps_channel));
+	writel(fep->next_counter, fep->hwp_enet + FEC_TCCR(fep->pps_channel));
 	fep->next_counter = (fep->next_counter + fep->reload_period) & fep->cc.mask;
 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
 
@@ -287,8 +286,8 @@ static int fec_ptp_pps_perout(struct fec_enet_private *fep)
 
 static enum hrtimer_restart fec_ptp_pps_perout_handler(struct hrtimer *timer)
 {
-	struct fec_enet_private *fep = container_of(timer,
-					struct fec_enet_private, perout_timer);
+	struct switch_enet_private *fep = container_of(timer,
+					struct switch_enet_private, perout_timer);
 
 	fec_ptp_pps_perout(fep);
 
@@ -305,7 +304,7 @@ static enum hrtimer_restart fec_ptp_pps_perout_handler(struct hrtimer *timer)
  */
 void fec_ptp_start_cyclecounter(struct net_device *ndev)
 {
-	struct fec_enet_private *fep = netdev_priv(ndev);
+	struct switch_enet_private *fep = netdev_priv(ndev);
 	unsigned long flags;
 	int inc;
 
@@ -315,13 +314,13 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev)
 	spin_lock_irqsave(&fep->tmreg_lock, flags);
 
 	/* 1ns counter */
-	writel(inc << FEC_T_INC_OFFSET, fep->hwp + FEC_ATIME_INC);
+	writel(inc << FEC_T_INC_OFFSET, fep->hwp_enet + FEC_ATIME_INC);
 
 	/* use 31-bit timer counter */
-	writel(FEC_COUNTER_PERIOD, fep->hwp + FEC_ATIME_EVT_PERIOD);
+	writel(FEC_COUNTER_PERIOD, fep->hwp_enet + FEC_ATIME_EVT_PERIOD);
 
 	writel(FEC_T_CTRL_ENABLE | FEC_T_CTRL_PERIOD_RST,
-		fep->hwp + FEC_ATIME_CTRL);
+		fep->hwp_enet + FEC_ATIME_CTRL);
 
 	memset(&fep->cc, 0, sizeof(fep->cc));
 	fep->cc.read = fec_ptp_read;
@@ -358,8 +357,8 @@ static int fec_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	u32 corr_ns;
 	u64 lhs, rhs;
 
-	struct fec_enet_private *fep =
-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+	struct switch_enet_private *fep =
+	    container_of(ptp, struct switch_enet_private, ptp_caps);
 
 	if (ppb == 0)
 		return 0;
@@ -398,11 +397,11 @@ static int fec_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 
 	spin_lock_irqsave(&fep->tmreg_lock, flags);
 
-	tmp = readl(fep->hwp + FEC_ATIME_INC) & FEC_T_INC_MASK;
+	tmp = readl(fep->hwp_enet + FEC_ATIME_INC) & FEC_T_INC_MASK;
 	tmp |= corr_ns << FEC_T_INC_CORR_OFFSET;
-	writel(tmp, fep->hwp + FEC_ATIME_INC);
+	writel(tmp, fep->hwp_enet + FEC_ATIME_INC);
 	corr_period = corr_period > 1 ? corr_period - 1 : corr_period;
-	writel(corr_period, fep->hwp + FEC_ATIME_CORR);
+	writel(corr_period, fep->hwp_enet + FEC_ATIME_CORR);
 	/* dummy read to update the timer. */
 	timecounter_read(&fep->tc);
 
@@ -420,8 +419,8 @@ static int fec_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
  */
 static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 {
-	struct fec_enet_private *fep =
-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+	struct switch_enet_private *fep =
+	    container_of(ptp, struct switch_enet_private, ptp_caps);
 	unsigned long flags;
 
 	spin_lock_irqsave(&fep->tmreg_lock, flags);
@@ -441,8 +440,8 @@ static int fec_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
  */
 static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
 {
-	struct fec_enet_private *fep =
-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+	struct switch_enet_private *fep =
+	    container_of(ptp, struct switch_enet_private, ptp_caps);
 	u64 ns;
 	unsigned long flags;
 
@@ -473,8 +472,8 @@ static int fec_ptp_gettime(struct ptp_clock_info *ptp, struct timespec64 *ts)
 static int fec_ptp_settime(struct ptp_clock_info *ptp,
 			   const struct timespec64 *ts)
 {
-	struct fec_enet_private *fep =
-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+	struct switch_enet_private *fep =
+	    container_of(ptp, struct switch_enet_private, ptp_caps);
 
 	u64 ns;
 	unsigned long flags;
@@ -494,14 +493,14 @@ static int fec_ptp_settime(struct ptp_clock_info *ptp,
 	counter = ns & fep->cc.mask;
 
 	spin_lock_irqsave(&fep->tmreg_lock, flags);
-	writel(counter, fep->hwp + FEC_ATIME);
+	writel(counter, fep->hwp_enet + FEC_ATIME);
 	timecounter_init(&fep->tc, &fep->cc, ns);
 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
 	mutex_unlock(&fep->ptp_clk_mutex);
 	return 0;
 }
 
-static int fec_ptp_pps_disable(struct fec_enet_private *fep, uint channel)
+static int fec_ptp_pps_disable(struct switch_enet_private *fep, uint channel)
 {
 	unsigned long flags;
 
@@ -525,8 +524,8 @@ static int fec_ptp_pps_disable(struct fec_enet_private *fep, uint channel)
 static int fec_ptp_enable(struct ptp_clock_info *ptp,
 			  struct ptp_clock_request *rq, int on)
 {
-	struct fec_enet_private *fep =
-	    container_of(ptp, struct fec_enet_private, ptp_caps);
+	struct switch_enet_private *fep =
+	    container_of(ptp, struct switch_enet_private, ptp_caps);
 	ktime_t timeout;
 	struct timespec64 start_time, period;
 	u64 curr_time, delta, period_ns;
@@ -638,7 +637,7 @@ unlock:
 int fec_ptp_set(struct net_device *ndev, struct kernel_hwtstamp_config *config,
 		struct netlink_ext_ack *extack)
 {
-	struct fec_enet_private *fep = netdev_priv(ndev);
+	struct switch_enet_private *fep = netdev_priv(ndev);
 
 	switch (config->tx_type) {
 	case HWTSTAMP_TX_OFF:
@@ -667,7 +666,7 @@ int fec_ptp_set(struct net_device *ndev, struct kernel_hwtstamp_config *config,
 
 void fec_ptp_get(struct net_device *ndev, struct kernel_hwtstamp_config *config)
 {
-	struct fec_enet_private *fep = netdev_priv(ndev);
+	struct switch_enet_private *fep = netdev_priv(ndev);
 
 	config->flags = 0;
 	config->tx_type = fep->hwts_tx_en ? HWTSTAMP_TX_ON : HWTSTAMP_TX_OFF;
@@ -682,7 +681,7 @@ void fec_ptp_get(struct net_device *ndev, struct kernel_hwtstamp_config *config)
 static void fec_time_keep(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
-	struct fec_enet_private *fep = container_of(dwork, struct fec_enet_private, time_keep);
+	struct switch_enet_private *fep = container_of(dwork, struct switch_enet_private, time_keep);
 	unsigned long flags;
 
 	mutex_lock(&fep->ptp_clk_mutex);
@@ -700,20 +699,20 @@ static void fec_time_keep(struct work_struct *work)
 static irqreturn_t fec_pps_interrupt(int irq, void *dev_id)
 {
 	struct net_device *ndev = dev_id;
-	struct fec_enet_private *fep = netdev_priv(ndev);
+	struct switch_enet_private *fep = netdev_priv(ndev);
 	u32 val;
 	u8 channel = fep->pps_channel;
 	struct ptp_clock_event event;
 
-	val = readl(fep->hwp + FEC_TCSR(channel));
+	val = readl(fep->hwp_enet + FEC_TCSR(channel));
 	if (val & FEC_T_TF_MASK) {
 		/* Write the next next compare(not the next according the spec)
 		 * value to the register
 		 */
-		writel(fep->next_counter, fep->hwp + FEC_TCCR(channel));
+		writel(fep->next_counter, fep->hwp_enet + FEC_TCCR(channel));
 		do {
-			writel(val, fep->hwp + FEC_TCSR(channel));
-		} while (readl(fep->hwp + FEC_TCSR(channel)) & FEC_T_TF_MASK);
+			writel(val, fep->hwp_enet + FEC_TCSR(channel));
+		} while (readl(fep->hwp_enet + FEC_TCSR(channel)) & FEC_T_TF_MASK);
 
 		/* Update the counter; */
 		fep->next_counter = (fep->next_counter + fep->reload_period) &
@@ -743,7 +742,7 @@ static irqreturn_t fec_pps_interrupt(int irq, void *dev_id)
 void fec_ptp_init(struct platform_device *pdev, int irq_idx)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
-	struct fec_enet_private *fep = netdev_priv(ndev);
+	struct switch_enet_private *fep = netdev_priv(ndev);
 	struct device_node *np = fep->pdev->dev.of_node;
 	int irq;
 	int ret;
@@ -805,7 +804,7 @@ void fec_ptp_init(struct platform_device *pdev, int irq_idx)
 	schedule_delayed_work(&fep->time_keep, HZ);
 }
 
-void fec_ptp_save_state(struct fec_enet_private *fep)
+void fec_ptp_save_state(struct switch_enet_private *fep)
 {
 	unsigned long flags;
 	u32 atime_inc_corr;
@@ -825,9 +824,9 @@ void fec_ptp_save_state(struct fec_enet_private *fep)
 }
 
 /* Restore PTP functionality after a reset */
-void fec_ptp_restore_state(struct fec_enet_private *fep)
+void fec_ptp_restore_state(struct switch_enet_private *fep)
 {
-	u32 atime_inc = readl(fep->hwp + FEC_ATIME_INC) & FEC_T_INC_MASK;
+	u32 atime_inc = readl(fep->hwp_enet + FEC_ATIME_INC) & FEC_T_INC_MASK;
 	unsigned long flags;
 	u32 counter;
 	u64 ns;
@@ -837,13 +836,13 @@ void fec_ptp_restore_state(struct fec_enet_private *fep)
 	/* Reset turned it off, so adjust our status flag */
 	fep->pps_enable = 0;
 
-	writel(fep->ptp_saved_state.at_corr, fep->hwp + FEC_ATIME_CORR);
+	writel(fep->ptp_saved_state.at_corr, fep->hwp_enet + FEC_ATIME_CORR);
 	atime_inc |= ((u32)fep->ptp_saved_state.at_inc_corr) << FEC_T_INC_CORR_OFFSET;
-	writel(atime_inc, fep->hwp + FEC_ATIME_INC);
+	writel(atime_inc, fep->hwp_enet + FEC_ATIME_INC);
 
 	ns = ktime_get_ns() - fep->ptp_saved_state.ns_sys + fep->ptp_saved_state.ns_phc;
 	counter = ns & fep->cc.mask;
-	writel(counter, fep->hwp + FEC_ATIME);
+	writel(counter, fep->hwp_enet + FEC_ATIME);
 	timecounter_init(&fep->tc, &fep->cc, ns);
 
 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
@@ -858,7 +857,7 @@ void fec_ptp_restore_state(struct fec_enet_private *fep)
 void fec_ptp_stop(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
-	struct fec_enet_private *fep = netdev_priv(ndev);
+	struct switch_enet_private *fep = netdev_priv(ndev);
 
 	if (fep->pps_enable)
 		fec_ptp_enable_pps(fep, 0);

@@ -26,6 +26,7 @@
 		regulator-name = "3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
 	};
 
 	reg_usb_5v: regulator-reg-usb-5v {
@@ -33,6 +34,7 @@
 		regulator-name = "usb_vbus";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
+		enable-active-high;
 	};
 
 	reg_fec_3v3: regulator-reg-fec-3v3 {
@@ -40,6 +42,8 @@
 		regulator-name = "fec-phy";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		regulator-boot-on;
 	};
 };
 
@@ -133,6 +137,12 @@
 				reg = <0xff0000 0x10000>;
 			};
 		};
+	};
+
+	spidev2@2 {
+		compatible = "lwn,btt";
+		spi-max-frequency = <100000000>;
+		reg = <2>;
 	};
 };
 

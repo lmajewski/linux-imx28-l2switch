@@ -1027,7 +1027,7 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 								      &rx_port);
 		}
 
-		if (!fep->br_offload && (rx_port == 1 || rx_port == 2))
+		if ((rx_port == 1 || rx_port == 2) && fep->ndev[rx_port - 1])
 			pndev = fep->ndev[rx_port - 1];
 		else
 			pndev = dev;
@@ -1435,8 +1435,7 @@ static int mtip_rx_napi(struct napi_struct *napi, int budget)
 		return 0;
 	}
 
-	if (!fep->br_offload &&
-	    (port == 1 || port == 2) && fep->ndev[port - 1])
+	if ((port == 1 || port == 2) && fep->ndev[port - 1])
 		mtip_switch_tx(fep->ndev[port - 1]);
 	else
 		mtip_switch_tx(napi->dev);

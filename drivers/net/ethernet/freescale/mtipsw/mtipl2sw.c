@@ -1961,11 +1961,15 @@ static int mtip_sw_probe(struct platform_device *pdev)
 
 	mtip_clear_atable(fep);
 
+	ret = mtip_register_notifiers(fep);
+	if (ret)
+		goto of_free_references;
+
 	ret = mtip_switch_dma_init(fep);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: ethernet switch init fail (%d)!\n",
 			__func__, ret);
-		goto of_free_references;
+		goto unregister_notifiers;
 	}
 
 	ret = mtip_mii_init(fep, pdev);
@@ -1997,6 +2001,8 @@ static int mtip_sw_probe(struct platform_device *pdev)
 			  fep->bd_dma);
 	fep->rx_bd_base = NULL;
 	fep->tx_bd_base = NULL;
+ unregister_notifiers:
+	mtip_unregister_notifiers(fep);
  of_free_references:
 	mtip_parse_of_cleanup(fep);
 
@@ -2009,6 +2015,7 @@ static void mtip_sw_remove(struct platform_device *pdev)
 
 	timer_delete_sync(&fep->timer_mgnt);
 
+	mtip_unregister_notifiers(fep);
 	mtip_ndev_cleanup(fep);
 
 	mtip_parse_of_cleanup(fep);

@@ -1884,6 +1884,11 @@ static int mtip_sw_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_enet_out),
 				     "Unable to acquire 'enet_out' clock\n");
 
+	fep->clk_ptp = devm_clk_get_optional_enabled(&pdev->dev, "ptp");
+	if (IS_ERR(fep->clk_ptp))
+		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_ptp),
+				     "Unable to acquire 'ptp' clock\n");
+
 	/* setup MII interface for external switch ports */
 	mtip_enet_init(fep, 1);
 	mtip_enet_init(fep, 2);
@@ -1922,6 +1927,10 @@ static int mtip_sw_probe(struct platform_device *pdev)
 			ret);
 		goto mii_init_err;
 	}
+
+	/* Initialize PTP FEC driver */
+	fec_ptp_init(pdev, 0);
+
 	/* setup timer for learning aging function */
 	timer_setup(&fep->timer_aging, mtip_aging_timer, 0);
 	mod_timer(&fep->timer_aging,
@@ -1939,6 +1948,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 
  task_learning_err:
 	del_timer(&fep->timer_aging);
+	fec_ptp_stop(pdev);
 	mtip_mii_unregister(fep);
  mii_init_err:
  dma_init_err:
@@ -1953,6 +1963,7 @@ static void mtip_sw_remove(struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = platform_get_drvdata(pdev);
 
+	fec_ptp_stop(pdev);
 	mtip_unregister_notifiers(fep);
 	mtip_ndev_cleanup(fep);
 

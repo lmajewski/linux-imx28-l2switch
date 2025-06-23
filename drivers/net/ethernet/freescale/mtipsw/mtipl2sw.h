@@ -230,6 +230,11 @@ struct switch_enet_private {
 	struct clk *clk_ipg;
 	struct clk *clk_ahb;
 	struct clk *clk_enet_out;
+	struct clk *clk_ptp;
+
+	/* PTP clk */
+	bool ptp_clk_on;
+	struct mutex ptp_clk_mutex;
 
 	/* skbuff */
 	unsigned char *tx_bounce[TX_RING_SIZE];
@@ -253,6 +258,38 @@ struct switch_enet_private {
 
 	/* NAPI support */
 	struct napi_struct napi;
+
+	/* PTP */
+	struct ptp_clock *ptp_clock;
+	struct ptp_clock_info ptp_caps;
+	unsigned long last_overflow_check;
+	spinlock_t tmreg_lock;
+	struct cyclecounter cc;
+	struct timecounter tc;
+	int rx_hwtstamp_filter;
+	u32 base_incval;
+	u32 cycle_speed;
+	int hwts_rx_en;
+	int hwts_tx_en;
+	struct delayed_work time_keep;
+
+	/* ptp clock period in ns*/
+	unsigned int ptp_inc;
+
+	/* pps  */
+	int pps_channel;
+	unsigned int reload_period;
+	int pps_enable;
+	unsigned int next_counter;
+	struct hrtimer perout_timer;
+	u64 perout_stime;
+
+	struct {
+		int pps_enable;
+		u64 ns_sys, ns_phc;
+		u32 at_corr;
+		u8 at_inc_corr;
+	} ptp_saved_state;
 
 	/* Timer for Aging */
 	struct timer_list timer_aging;
@@ -768,4 +805,7 @@ void mtip_unregister_notifiers(struct switch_enet_private *fep);
 int mtip_port_enable_config(struct switch_enet_private *fep, int port,
 			    bool tx_en, bool rx_en);
 void mtip_clear_atable(struct switch_enet_private *fep);
+/* PTP */
+void fec_ptp_init(struct platform_device *pdev, int irq_idx);
+void fec_ptp_stop(struct platform_device *pdev);
 #endif /* __MTIP_L2SWITCH_H_ */

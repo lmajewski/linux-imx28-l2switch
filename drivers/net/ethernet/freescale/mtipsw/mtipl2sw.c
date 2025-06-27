@@ -532,6 +532,8 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 	/* Fill in a Tx ring entry */
 	bdp = fep->cur_tx;
 
+	/* Force read memory barier on the current transmit description */
+	rmb();
 	status = bdp->cbd_sc;
 
 	if (status & BD_ENET_TX_READY) {

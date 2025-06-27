@@ -16,7 +16,7 @@
 
 #define PKT_MAXBUF_SIZE         1518
 #define PKT_MINBUF_SIZE         64
-#define PKT_MAXBLR_SIZE         1520
+#define PKT_MAXBLR_SIZE         1536
 
 /* The number of Tx and Rx buffers. These are allocated from the page
  * pool. The code may assume these are power of two, so it is best

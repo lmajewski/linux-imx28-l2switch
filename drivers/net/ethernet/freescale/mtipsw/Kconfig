@@ -4,10 +4,11 @@ config FEC_MTIP_L2SW
 	depends on OF
 	depends on NET_SWITCHDEV
 	depends on BRIDGE
-	depends on SOC_IMX28 || COMPILE_TEST
+	depends on SOC_IMX28 || SOC_VF610 || COMPILE_TEST
 	help
 	  This enables support for the MoreThan IP L2 switch on i.MX
-	  SoCs (e.g. iMX287). It offloads bridging to this IP block's
-	  hardware and allows switch management with standard Linux tools.
-	  This switch driver can be used interchangeable with the already
-	  available FEC driver, depending on the use case's requirements.
+	  SoCs (e.g. iMX287 or vf610). It offloads bridging to this IP
+	  block's hardware and allows switch management with standard
+	  Linux tools. This switch driver can be used interchangeable
+	  with the already available FEC driver, depending on the use
+	  case's requirements.

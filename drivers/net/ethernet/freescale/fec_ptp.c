@@ -887,7 +887,6 @@ void fec_ptp_stop(struct platform_device *pdev)
 {
 #ifdef CONFIG_FEC_MTIP_L2SW
 	fep_t *fep = platform_get_drvdata(pdev);
-	struct net_device *ndev = fep->ndev[0];
 #else
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	fep_t *fep = netdev_priv(ndev);

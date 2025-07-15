@@ -1237,10 +1237,12 @@ static int mtip_mii_probe(struct net_device *dev)
 
 static int mtip_mdiobus_reset(struct mii_bus *bus)
 {
-	if (!bus || !bus->reset_gpiod) {
-		dev_err(&bus->dev, "Reset GPIO pin not provided!\n");
-		return -EINVAL;
-	}
+	/* Not all PHY devices require gpio reset defined, as some of
+	 * them may use the HW (i.e. with a separate reset IC) generated
+	 * reset.
+	 */
+	if (!bus->reset_gpiod)
+		return 0;
 
 	gpiod_set_value_cansleep(bus->reset_gpiod, 0);
 

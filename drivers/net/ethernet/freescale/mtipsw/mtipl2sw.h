@@ -261,7 +261,7 @@ struct switch_enet_private {
 	int at_block_overflows;
 
 	/* PHY and MDIO */
-	struct mii_bus *mii_bus;
+	struct mii_bus *mii_bus[SWITCH_EPORT_NUMBER];
 	struct phy_device *phy_dev[SWITCH_EPORT_NUMBER];
 	uint phy_speed;
 	int link[SWITCH_EPORT_NUMBER];

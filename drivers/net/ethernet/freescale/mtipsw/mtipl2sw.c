@@ -1155,15 +1155,19 @@ static void mtip_adjust_link(struct net_device *dev)
 		phy_print_status(phy_dev);
 }
 
-static int mtip_mdio_wait(struct switch_enet_private *fep)
+static int mtip_mdio_wait(struct switch_enet_private *fep, int bus_id)
 {
+	void __iomem *enet_addr = fep->enet_addr;
 	uint ievent = 0;
 	int ret;
 
-	ret = readl_poll_timeout_atomic(fep->enet_addr + MCF_FEC_EIR, ievent,
+	if (bus_id == 1)
+		enet_addr += MCF_ESW_ENET_PORT_OFFSET;
+
+	ret = readl_poll_timeout_atomic(enet_addr + MCF_FEC_EIR, ievent,
 					ievent & MCF_ENET_MII, 2, 30000);
 	if (!ret)
-		writel(MCF_ENET_MII, fep->enet_addr + MCF_FEC_EIR);
+		writel(MCF_ENET_MII, enet_addr + MCF_FEC_EIR);
 
 	return ret;
 }
@@ -1171,16 +1175,24 @@ static int mtip_mdio_wait(struct switch_enet_private *fep)
 static int mtip_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 {
 	struct switch_enet_private *fep = bus->priv;
+	void __iomem *enet_addr = fep->enet_addr;
+	int bus_id = 0;
 	int ret;
+
+	if(fep->mii_bus[1] && fep->mii_bus[1] == bus)
+		bus_id = 1;
+
+	if (bus_id == 1)
+		enet_addr += MCF_ESW_ENET_PORT_OFFSET;
 
 	/* start a read op */
 	writel(FEC_MMFR_ST | FEC_MMFR_OP_READ |
 	       FIELD_PREP(FEC_MMFR_PA_MASK, mii_id) |
 	       FIELD_PREP(FEC_MMFR_RA_MASK, regnum) |
-	       FEC_MMFR_TA, fep->enet_addr + MCF_FEC_MII_DATA);
+	       FEC_MMFR_TA, enet_addr + MCF_FEC_MII_DATA);
 
 	/* wait for end of transfer */
-	ret = mtip_mdio_wait(fep);
+	ret = mtip_mdio_wait(fep, bus_id);
 	if (ret) {
 		dev_err(&fep->pdev->dev, "MTIP: MDIO (%s:%d) read timeout\n",
 			bus->id, mii_id);
@@ -1189,24 +1201,32 @@ static int mtip_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 
 	/* return value */
 	return FIELD_GET(FEC_MMFR_DATA_MASK,
-			 readl(fep->enet_addr + MCF_FEC_MII_DATA));
+			 readl(enet_addr + MCF_FEC_MII_DATA));
 }
 
 static int mtip_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 			   u16 value)
 {
 	struct switch_enet_private *fep = bus->priv;
+	void __iomem *enet_addr = fep->enet_addr;
+	int bus_id = 0;
 	int ret;
+
+	if(fep->mii_bus[1] && fep->mii_bus[1] == bus)
+		bus_id = 1;
+
+	if (bus_id == 1)
+		enet_addr += MCF_ESW_ENET_PORT_OFFSET;
 
 	/* start a write op */
 	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
 	       FIELD_PREP(FEC_MMFR_PA_MASK, mii_id) |
 	       FIELD_PREP(FEC_MMFR_RA_MASK, regnum) |
 	       FEC_MMFR_TA | FIELD_PREP(FEC_MMFR_DATA_MASK, value),
-	       fep->enet_addr + MCF_FEC_MII_DATA);
+	       enet_addr + MCF_FEC_MII_DATA);
 
 	/* wait for end of transfer */
-	ret = mtip_mdio_wait(fep);
+	ret = mtip_mdio_wait(fep, bus_id);
 	if (ret)
 		dev_err(&fep->pdev->dev, "MTIP: MDIO (%s:%d) write timeout\n",
 			bus->id, mii_id);
@@ -1274,11 +1294,18 @@ static int mtip_mdiobus_reset(struct mii_bus *bus)
 	return 0;
 }
 
-static int mtip_mii_init(struct switch_enet_private *fep,
-			 struct platform_device *pdev)
+static int __mtip_mii_init(struct switch_enet_private *fep,
+                           struct platform_device *pdev,
+                           struct device_node *node, int idx)
 {
-	struct device_node *node;
+	void __iomem *enet_addr = fep->enet_addr;
 	int err = -ENXIO;
+
+	if (!node)
+		return -EINVAL;
+
+	if (idx == 1)
+		enet_addr += MCF_ESW_ENET_PORT_OFFSET;
 
 	/* Clear MMFR to avoid to generate MII event by writing MSCR.
 	 * MII event generation condition:
@@ -1290,38 +1317,59 @@ static int mtip_mii_init(struct switch_enet_private *fep,
 	 */
 	writel(0, fep->hwp + MCF_FEC_MII_DATA);
 	/* Clear any pending transaction complete indication */
-	writel(MCF_ENET_MII, fep->enet_addr + MCF_FEC_EIR);
+	writel(MCF_ENET_MII, enet_addr + MCF_FEC_EIR);
 
-	fep->mii_bus = mdiobus_alloc();
-	if (!fep->mii_bus) {
+	fep->mii_bus[idx] = mdiobus_alloc();
+	if (!fep->mii_bus[idx]) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	fep->mii_bus->name = "mtip_mii_bus";
-	fep->mii_bus->read = mtip_mdio_read;
-	fep->mii_bus->write = mtip_mdio_write;
-	fep->mii_bus->reset = mtip_mdiobus_reset;
-	snprintf(fep->mii_bus->id, MII_BUS_ID_SIZE, "%x", 0);
-	fep->mii_bus->priv = fep;
-	fep->mii_bus->parent = &pdev->dev;
+	fep->mii_bus[idx]->name = "mtip_mii_bus";
+	fep->mii_bus[idx]->read = mtip_mdio_read;
+	fep->mii_bus[idx]->write = mtip_mdio_write;
+	fep->mii_bus[idx]->reset = mtip_mdiobus_reset;
+	snprintf(fep->mii_bus[idx]->id, MII_BUS_ID_SIZE, "l2sw_mdio%x", idx);
+	fep->mii_bus[idx]->priv = fep;
+	fep->mii_bus[idx]->parent = &pdev->dev;
 
-	node = of_get_child_by_name(pdev->dev.of_node, "mdio");
-	if (node)
-		dev_err(&fep->pdev->dev, "%s: PHY name: %s\n",
-			__func__, node->name);
-
-	err = of_mdiobus_register(fep->mii_bus, node);
-	if (node)
-		of_node_put(node);
+	err = of_mdiobus_register(fep->mii_bus[idx], node);
 	if (err)
 		goto err_out_free_mdiobus;
 
 	return 0;
 
 err_out_free_mdiobus:
-	mdiobus_free(fep->mii_bus);
+	mdiobus_free(fep->mii_bus[idx]);
 err_out:
+	return err;
+
+}
+
+static int mtip_mii_init(struct switch_enet_private *fep,
+			 struct platform_device *pdev)
+{
+	struct device_node *child;
+	int err, i = 0;
+
+	for_each_child_of_node(pdev->dev.of_node, child) {
+		if (of_node_name_eq(child, "mdio")) {
+			err = __mtip_mii_init(fep, pdev, child, i);
+			if (child)
+				of_node_put(child);
+			if (err) {
+				dev_err(&fep->pdev->dev, "MII init failed!\n");
+				break;
+			}
+
+			dev_dbg(&fep->pdev->dev, "%s: %s[%d]\n", __func__,
+			        child->name, i);
+
+			if (++i == SWITCH_EPORT_NUMBER)
+				break;
+		}
+	}
+
 	return err;
 }
 
@@ -1335,10 +1383,12 @@ static void mtip_mii_remove(struct switch_enet_private *fep)
 
 		if (fep->phy_dev[i])
 			phy_disconnect(fep->phy_dev[i]);
-	}
 
-	mdiobus_unregister(fep->mii_bus);
-	mdiobus_free(fep->mii_bus);
+		if (fep->mii_bus[i]) {
+			mdiobus_unregister(fep->mii_bus[i]);
+			mdiobus_free(fep->mii_bus[i]);
+		}
+	}
 }
 
 static void mtip_get_drvinfo(struct net_device *dev,

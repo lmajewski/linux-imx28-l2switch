@@ -66,7 +66,7 @@ static void mtip_enet_init(struct switch_enet_private *fep, int port)
 	reg = MCF_FEC_RCR_PROM | MCF_FEC_RCR_MII_MODE |
 		MCF_FEC_RCR_MAX_FL(1522);
 
-	if (fep->phy_interface[port - 1]  == PHY_INTERFACE_MODE_RMII)
+	if (fep->phy_interface[port - 1] == PHY_INTERFACE_MODE_RMII)
 		reg |= MCF_FEC_RCR_RMII_MODE;
 
 	writel(reg, enet_addr + MCF_FEC_RCR);

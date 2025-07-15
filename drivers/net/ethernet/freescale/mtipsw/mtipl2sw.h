@@ -170,6 +170,7 @@ struct mtip_addr_table {
 #define MCF_FEC_ECR_ETHER_EN   BIT(1)
 #define MCF_FEC_ECR_MAGIC_ENA  BIT(2)
 #define MCF_FEC_ECR_ENA_1588   BIT(4)
+#define MCF_FEC_ECR_BYTESWP    BIT(8)
 
 #define MTIP_ALIGNMENT   0xf
 #define MCF_ENET_MII	BIT(23)

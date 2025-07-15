@@ -80,7 +80,8 @@ static void mtip_enet_init(struct switch_enet_private *fep, int port)
 	writel(reg, enet_addr + MCF_FEC_RCR);
 
 	writel(MCF_FEC_TCR_FDEN, enet_addr + MCF_FEC_TCR);
-	writel(MCF_FEC_ECR_ETHER_EN, enet_addr + MCF_FEC_ECR);
+	writel(MCF_FEC_ECR_BYTESWP | MCF_FEC_ECR_ETHER_EN,
+	       enet_addr + MCF_FEC_ECR);
 
 	mii_speed = DIV_ROUND_UP(clk_get_rate(fep->clk_ipg), 5000000);
 	mii_speed--;
@@ -641,7 +642,8 @@ static void mtip_configure_enet_mii(struct switch_enet_private *fep, int port)
 		enet_addr += MCF_ESW_ENET_PORT_OFFSET;
 
 	/* ECR */
-	writel(MCF_FEC_ECR_MAGIC_ENA, enet_addr + MCF_FEC_ECR);
+	writel(MCF_FEC_ECR_BYTESWP | MCF_FEC_ECR_MAGIC_ENA,
+	       enet_addr + MCF_FEC_ECR);
 
 	/* EMRBR */
 	writel(PKT_MAXBLR_SIZE, enet_addr + MCF_FEC_EMRBR);

@@ -1863,7 +1863,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 		(fep->hwp + MCF_ESW_LOOKUP_MEM_OFFSET);
 
 	ret = devm_regulator_get_enable_optional(&pdev->dev, "phy");
-	if (ret)
+	if (ret < 0 && ret != -ENODEV)
 		return dev_err_probe(&pdev->dev, ret,
 				     "Unable to get and enable 'phy'\n");
 

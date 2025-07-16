@@ -242,9 +242,15 @@ struct switch_enet_private {
 	struct mtip_port_info g_info;
 
 	/* Clocks */
+	struct clk_bulk_data *clks;
+	int clk_num;
 	struct clk *clk_ipg;
-	struct clk *clk_ahb;
-	struct clk *clk_enet_out;
+
+	struct clk *clk_ptp;
+
+	/* PTP clk */
+	bool ptp_clk_on;
+	struct mutex ptp_clk_mutex;
 
 	/* skbuff */
 	unsigned char *tx_bounce[TX_RING_SIZE];

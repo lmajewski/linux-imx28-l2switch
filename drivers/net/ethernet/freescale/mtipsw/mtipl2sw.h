@@ -125,8 +125,23 @@ struct mtip_addr_table {
 };
 
 #define MCF_ESW_LOOKUP_MEM_OFFSET     0x4000
+#ifdef CONFIG_SOC_IMX28
 #define MCF_ESW_ENET_PORT_OFFSET      0x4000
 #define ENET_SWI_PHYS_ADDR_OFFSET     0x8000
+#endif
+
+#ifdef CONFIG_SOC_VF610
+/* Memory layout vf610 for ENET + MTIP L2 SW
+ *
+ * 0x400d0000 ENET0 (size 0x1000)
+ * 0x400e0000 ENET1 (size 0x1000)
+ *
+ * 0x400e8000 ESW (switch) (size 0x4000)
+ * 0x400eC000 ESW MAC Table (switch) (size 0x4000)
+ */
+#define MCF_ESW_ENET_PORT_OFFSET      0x1000
+#endif
+
 #define MCF_ESW_PER	(0x08)
 #define MCF_ESW_DBCR	(0x14)
 #define MCF_ESW_IMR	(0x404)

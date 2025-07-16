@@ -1903,7 +1903,11 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	fep->pdev = pdev;
 	platform_set_drvdata(pdev, fep);
 
-	fep->enet_addr = devm_platform_ioremap_resource(pdev, 0);
+	fep->hwp = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(fep->hwp))
+		return PTR_ERR(fep->hwp);
+
+	fep->enet_addr = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(fep->enet_addr))
 		return PTR_ERR(fep->enet_addr);
 
@@ -1922,7 +1926,6 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	 * The switch lookup address memory starts at 0x800FC000
 	 */
 	fep->hwp_enet = fep->enet_addr;
-	fep->hwp = fep->enet_addr + ENET_SWI_PHYS_ADDR_OFFSET;
 	fep->hwentry = (struct mtip_addr_table __iomem *)
 		(fep->hwp + MCF_ESW_LOOKUP_MEM_OFFSET);
 

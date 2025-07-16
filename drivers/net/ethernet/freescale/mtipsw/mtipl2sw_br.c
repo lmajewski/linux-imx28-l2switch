@@ -9,6 +9,7 @@
 #include <linux/etherdevice.h>
 #include <linux/netdevice.h>
 #include <linux/platform_device.h>
+#include <net/switchdev.h>
 
 #include "mtipl2sw.h"
 
@@ -19,6 +20,7 @@ static int mtip_ndev_port_link(struct net_device *ndev,
 	struct mtip_ndev_priv *priv = netdev_priv(ndev), *other_priv;
 	struct switch_enet_private *fep = priv->fep;
 	struct net_device *other_ndev;
+	int err;
 
 	/* Check if one port of MTIP switch is already bridged */
 	if (fep->br_members && !fep->br_offload) {
@@ -41,6 +43,14 @@ static int mtip_ndev_port_link(struct net_device *ndev,
 
 	fep->br_members |= BIT(priv->portnum - 1);
 
+	err = switchdev_bridge_port_offload(ndev, ndev, NULL, NULL, NULL,
+					    false, extack);
+	if (err) {
+		dev_err(&ndev->dev, "can't offload bridge port %s [err: %d]\n", ndev->name,
+		        err);
+		return err;
+	}
+
 	dev_dbg(&ndev->dev,
 		"%s: ndev: %s br: %s fep: %p members: 0x%x offload: %d\n",
 		__func__, ndev->name,  br_ndev->name, fep, fep->br_members,
@@ -56,6 +66,8 @@ static void mtip_netdevice_port_unlink(struct net_device *ndev)
 
 	dev_dbg(&ndev->dev, "%s: ndev: %s members: 0x%x\n", __func__,
 		ndev->name, fep->br_members);
+
+	switchdev_bridge_port_unoffload(ndev, NULL, NULL, NULL);
 
 	fep->br_members &= ~BIT(priv->portnum - 1);
 	priv->master_dev = NULL;

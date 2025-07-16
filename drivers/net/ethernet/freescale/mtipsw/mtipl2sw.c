@@ -1868,9 +1868,15 @@ static const struct mtip_devinfo mtip_imx28_l2switch_info = {
 		  FEC_QUIRK_SWAP_FRAME,
 };
 
+static const struct mtip_devinfo mtip_vf610_l2switch_info = {
+	.quirks = 0,
+};
+
 static const struct of_device_id mtipl2_of_match[] = {
 	{ .compatible = "nxp,imx28-mtip-switch",
 	  .data = &mtip_imx28_l2switch_info},
+	{ .compatible = "nxp,vf610-mtip-switch",
+	  .data = &mtip_vf610_l2switch_info},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, mtipl2_of_match);

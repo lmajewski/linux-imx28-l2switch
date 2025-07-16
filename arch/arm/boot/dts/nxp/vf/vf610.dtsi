@@ -21,7 +21,7 @@
 
 &aips1 {
 	eth_switch: switch@400e8000 {
-		compatible = "nxp,imx28-mtip-switch";
+		compatible = "nxp,vf610-mtip-switch";
 		reg = <0x400e8000 0x8000 0x400d0000 0x2000>;
 		interrupts = <82 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "mtipl2sw";

@@ -158,19 +158,31 @@
 };
 
 &eth_switch {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_fec0>, <&pinctrl_fec1>;
 	status = "okay";
+        #address-cells = <1>;
+        #size-cells = <0>;
 
-	ports {
-		port1@1 {
+	ethernet-ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+		mtip_port1: port1@1 {
 			reg = <1>;
-			label = "eth0";
-			phy-handle = <&fec0>;
+			label = "lan0";
+			phy-mode = "rmii";
+			phy-handle = <&swethphy0>;
 		};
 
-		port2@2 {
+		mtip_port2: port2@2 {
 			reg = <2>;
-			label = "eth1";
-			phy-handle = <&fec1>;
+			label = "lan1";
+			phy-mode = "rmii";
+			phy-handle = <&swethphy1>;
+		};
+	};
+
 	mdio@0 {
                 #address-cells = <1>;
                 #size-cells = <0>;

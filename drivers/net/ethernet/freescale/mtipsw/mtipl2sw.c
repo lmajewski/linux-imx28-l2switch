@@ -51,8 +51,30 @@ static void swap_buffer(void *bufaddr, int len)
 		swab32s(buf);
 }
 
+static struct clk_bulk_data imx28_clocks[] = {
+	{ .id = "ahb" },
+	{ .id = "enet_out" },
+};
+
+static struct clk_bulk_data vf_clocks[] = {
+	{ .id = "esw" },
+	{ .id = "esw_tab0" },
+	{ .id = "esw_tab1" },
+	{ .id = "esw_tab2" },
+	{ .id = "esw_tab3" },
+	{ .id = "ahb" },
+	{ .id = "ipg1" },
+	{ .id = "ahb1" },
+};
+
+struct mtip_bulk_clk {
+	struct clk_bulk_data *c;
+	int size;
+};
+
 struct mtip_devinfo {
 	u32 quirks;
+	struct mtip_bulk_clk clk;
 };
 
 static void mtip_enet_init(struct switch_enet_private *fep, int port)
@@ -1866,10 +1888,14 @@ static void mtip_mii_unregister(struct switch_enet_private *fep)
 static const struct mtip_devinfo mtip_imx28_l2switch_info = {
 	.quirks = FEC_QUIRK_BUG_CAPTURE | FEC_QUIRK_SINGLE_MDIO |
 		  FEC_QUIRK_SWAP_FRAME,
+	.clk.c = imx28_clocks,
+	.clk.size = ARRAY_SIZE(imx28_clocks),
 };
 
 static const struct mtip_devinfo mtip_vf610_l2switch_info = {
 	.quirks = 0,
+	.clk.c = vf_clocks,
+	.clk.size = ARRAY_SIZE(vf_clocks),
 };
 
 static const struct of_device_id mtipl2_of_match[] = {
@@ -1896,8 +1922,11 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	of_id = of_match_node(mtipl2_of_match, pdev->dev.of_node);
 	if (of_id) {
 		dev_info = (struct mtip_devinfo *)of_id->data;
-		if (dev_info)
+		if (dev_info) {
 			fep->quirks = dev_info->quirks;
+			fep->clks = dev_info->clk.c;
+			fep->clk_num = dev_info->clk.size;
+		}
 	}
 
 	fep->pdev = pdev;
@@ -1939,16 +1968,13 @@ static int mtip_sw_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_ipg),
 				     "Unable to acquire 'ipg' clock\n");
 
-	fep->clk_ahb = devm_clk_get_enabled(&pdev->dev, "ahb");
-	if (IS_ERR(fep->clk_ahb))
-		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_ahb),
-				     "Unable to acquire 'ahb' clock\n");
+	ret = devm_clk_bulk_get(&pdev->dev, fep->clk_num, fep->clks);
+	if (ret)
+		return ret;
 
-	fep->clk_enet_out = devm_clk_get_optional_enabled(&pdev->dev,
-							  "enet_out");
-	if (IS_ERR(fep->clk_enet_out))
-		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_enet_out),
-				     "Unable to acquire 'enet_out' clock\n");
+	ret = clk_bulk_prepare_enable(fep->clk_num, fep->clks);
+	if (ret)
+		return ret;
 
 	fep->clk_ptp = devm_clk_get_optional_enabled(&pdev->dev, "ptp");
 	if (IS_ERR(fep->clk_ptp))
@@ -1971,7 +1997,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 
 	ret = mtip_register_notifiers(fep);
 	if (ret)
-		return ret;
+		goto disable_clk_bulk;
 
 	ret = mtip_ndev_init(fep, pdev);
 	if (ret) {
@@ -2021,6 +2047,8 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	mtip_ndev_cleanup(fep);
  ndev_init_err:
 	mtip_unregister_notifiers(fep);
+ disable_clk_bulk:
+        clk_bulk_disable_unprepare(fep->clk_num, fep->clks);
 
 	return ret;
 }
@@ -2037,6 +2065,7 @@ static void mtip_sw_remove(struct platform_device *pdev)
 
 	kthread_stop(fep->task);
 	del_timer(&fep->timer_aging);
+	clk_bulk_disable_unprepare(fep->clk_num, fep->clks);
 	platform_set_drvdata(pdev, NULL);
 
 	kfree(fep);

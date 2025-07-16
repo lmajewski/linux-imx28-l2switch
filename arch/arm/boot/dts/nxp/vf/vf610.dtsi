@@ -26,12 +26,16 @@
 		interrupts = <82 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "mtipl2sw";
 		clocks = <&clks VF610_CLK_ESW>,
-					<&clks VF610_CLK_ESW_MAC_TAB>,
-					<&clks VF610_CLK_ENET>,
-					<&clks VF610_CLK_ENET0>,
-					<&clks VF610_CLK_ENET1>,
-                                        <&clks VF610_CLK_ENET_50M>;
-		clock-names = "esw", "esw_tab", "enet", "enet0", "enet1", "rmii-ref";
+				<&clks VF610_CLK_ESW_MAC_TAB0>,
+				<&clks VF610_CLK_ESW_MAC_TAB1>,
+				<&clks VF610_CLK_ESW_MAC_TAB2>,
+				<&clks VF610_CLK_ESW_MAC_TAB3>,
+				<&clks VF610_CLK_ENET0>,
+				<&clks VF610_CLK_ENET0>,
+				<&clks VF610_CLK_ENET1>,
+				<&clks VF610_CLK_ENET1>,
+				<&clks VF610_CLK_ENET>;
+		clock-names = "esw", "esw_tab0", "esw_tab1", "esw_tab2", "esw_tab3", "ipg", "ahb", "ipg1", "ahb1", "ptp";
 		status = "disabled";
 	};
 };

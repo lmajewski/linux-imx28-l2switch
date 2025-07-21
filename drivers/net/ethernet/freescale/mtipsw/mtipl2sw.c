@@ -40,6 +40,7 @@
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <net/page_pool/helpers.h>
+#include <net/netlink.h>
 
 #include "mtipl2sw.h"
 
@@ -84,6 +85,13 @@ struct mtip_bulk_clk {
 struct mtip_devinfo {
 	u32 quirks;
 	struct mtip_bulk_clk clk;
+};
+
+struct mtip_dump_ctx {
+	struct net_device *dev;
+	struct sk_buff *skb;
+	struct netlink_callback *cb;
+	int idx;
 };
 
 static void mtip_enet_init(struct switch_enet_private *fep, int port)
@@ -292,6 +300,117 @@ void mtip_clear_atable(struct switch_enet_private *fep)
 
 	for (index = 0; index < MTIP_ATABLE_MEM_NUM_ENTRIES; index++)
 		mtip_write_atable(fep, index, 0, 0);
+}
+
+static int mtip_port_fdb_do_dump(const unsigned char *addr, bool is_static,
+                                 void *data)
+{
+	struct mtip_dump_ctx *dump = data;
+	u32 portid = NETLINK_CB(dump->cb->skb).portid;
+	u32 seq = dump->cb->nlh->nlmsg_seq;
+	struct nlmsghdr *nlh;
+	struct ndmsg *ndm;
+
+	if (dump->idx < dump->cb->args[2])
+		goto skip;
+
+	nlh = nlmsg_put(dump->skb, portid, seq, RTM_NEWNEIGH,
+			sizeof(*ndm), NLM_F_MULTI);
+	if (!nlh)
+		return -EMSGSIZE;
+
+	ndm = nlmsg_data(nlh);
+	ndm->ndm_family  = AF_BRIDGE;
+	ndm->ndm_pad1    = 0;
+	ndm->ndm_pad2    = 0;
+	ndm->ndm_flags   = NTF_SELF;
+	ndm->ndm_type    = 0;
+	ndm->ndm_ifindex = dump->dev->ifindex;
+	ndm->ndm_state   = is_static ? NUD_NOARP : NUD_REACHABLE;
+
+	if (nla_put(dump->skb, NDA_LLADDR, ETH_ALEN, addr))
+		goto nla_put_failure;
+
+	nlmsg_end(dump->skb, nlh);
+
+skip:
+	dump->idx++;
+	return 0;
+
+nla_put_failure:
+	nlmsg_cancel(dump->skb, nlh);
+	return -EMSGSIZE;
+}
+
+static int mtip_dump_mac_table(struct switch_enet_private *fep,
+                               int port, void *data)
+{
+	unsigned char mac[ETH_ALEN], tport, is_static, prio, is_valid;
+	int index, time, err = 0;
+	u32 read_lo, read_hi;
+
+	for (index = 0; index < MTIP_ATABLE_MEM_NUM_ENTRIES; index++) {
+		mtip_read_atable(fep, index, &read_lo, &read_hi);
+
+		mac[0] = read_lo & GENMASK(7,0);
+		mac[1] = (read_lo >> 8)  & GENMASK(7,0);
+		mac[2] = (read_lo >> 16) & GENMASK(7,0);
+		mac[3] = (read_lo >> 24) & GENMASK(7,0);
+		mac[4] = (read_hi) & GENMASK(7,0);
+		mac[5] = (read_hi >> 8) & GENMASK(7,0);
+
+		if (is_valid_ether_addr(mac)) {
+			is_static = (read_hi >> AT_ENTRY_TYPE_shift) & 0x1;
+			is_valid = (read_hi >> AT_ENTRY_VALID_shift) & 0x1;
+			if (is_static == 1) {
+				prio = (read_hi >> AT_SENTRY_PRIO_shift) &
+					GENMASK(2, 0);
+				tport = (read_hi >> AT_SENTRY_PORTMASK_shift) &
+					GENMASK(2, 0);
+				pr_debug("MAC TAB: S i: %04i %pM V: %d P: %d Prio: %d\n",
+				         index, mac, is_valid, tport, prio);
+
+				if (is_valid && (tport & BIT(port)))
+					err = mtip_port_fdb_do_dump(mac, is_static,
+					                            data);
+			} else {
+				time = (read_hi >> AT_DENTRY_TIME_shift) &
+					GENMASK(9, 0);
+				tport = (read_hi >> AT_DENTRY_PORT_shift) &
+					GENMASK(3, 0);
+				pr_debug("MAC TAB: D i: %04i %pM V: %d P: %d T: %d\n",
+				         index, mac, is_valid, tport, time);
+
+				if (is_valid && (port == tport))
+					err = mtip_port_fdb_do_dump(mac, is_static,
+					                            data);
+			}
+			if (err)
+				break;
+		}
+	}
+
+	return err;
+}
+
+static int mtip_port_fdb_dump(struct sk_buff *skb,
+                              struct netlink_callback *cb,
+                              struct net_device *dev,
+                              struct net_device *filter_dev, int *idx)
+{
+	struct mtip_ndev_priv *priv = netdev_priv(dev);
+	struct switch_enet_private *fep = priv->fep;
+	struct mtip_dump_ctx dump = {
+		.dev = dev,
+		.skb = skb,
+		.cb = cb,
+		.idx = *idx,
+	};
+	int port = priv->portnum;
+	int ret = mtip_dump_mac_table(fep, port, &dump);
+
+	*idx = dump.idx;
+        return ret;
 }
 
 static int __mtip_update_atable_static(unsigned char *mac_addr, unsigned int port,
@@ -1752,6 +1871,7 @@ static const struct net_device_ops mtip_netdev_ops = {
 	.ndo_tx_timeout	= mtip_timeout,
 	.ndo_set_mac_address	= mtip_set_mac_address,
 	.ndo_get_port_parent_id	= mtip_get_port_parent_id,
+	.ndo_fdb_dump		= mtip_port_fdb_dump,
 };
 
 bool mtip_is_switch_netdev_port(const struct net_device *ndev)

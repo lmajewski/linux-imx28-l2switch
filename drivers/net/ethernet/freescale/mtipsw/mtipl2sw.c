@@ -1075,6 +1075,7 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 			skb_put(skb, pkt_len);      /* Make room */
 			skb_copy_to_linear_data(skb, data, pkt_len);
 			skb->protocol = eth_type_trans(skb, pndev);
+			skb->offload_fwd_mark = fep->br_offload;
 			napi_gro_receive(&fep->napi, skb);
 		}
 

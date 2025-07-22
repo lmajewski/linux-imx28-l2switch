@@ -996,6 +996,7 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 
 		pkt_received++;
 
+		writel(MCF_ESW_IMR_RXF, fep->hwp + ESW_ISR);
 		if (!fep->usage_count)
 			goto rx_processing_done;
 

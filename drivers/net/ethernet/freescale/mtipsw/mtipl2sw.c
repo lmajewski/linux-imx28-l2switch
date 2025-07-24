@@ -267,11 +267,6 @@ static void mtip_atable_get_entry_port_number(struct switch_enet_private *fep,
 		     (mac_addr_hi & 0x0000FFFF))) {
 			/* found the correct address */
 			if ((read_hi & (1 << 16)) && (!(read_hi & (1 << 17))))
-
-
-
-
-
 				*port = AT_EXTRACT_PORT(read_hi);
 			break;
 		}

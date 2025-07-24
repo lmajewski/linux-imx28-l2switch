@@ -2008,7 +2008,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "Could not alloc IRQ\n");
 
-	ret = mtip_register_notifiers(fep);
+	ret = mtip_bridge_register_notifiers(fep);
 	if (ret)
 		goto disable_clk_bulk;
 
@@ -2048,7 +2048,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	fep->rx_bd_base = NULL;
 	fep->tx_bd_base = NULL;
  unregister_notifiers:
-	mtip_unregister_notifiers(fep);
+	mtip_bridge_unregister_notifiers(fep);
  disable_clk_bulk:
         clk_bulk_disable_unprepare(fep->clk_num, fep->clks);
 
@@ -2059,7 +2059,8 @@ static void mtip_sw_remove(struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = platform_get_drvdata(pdev);
 
-	mtip_unregister_notifiers(fep);
+	mtip_bridge_unregister_notifiers(fep);
+
 	mtip_ndev_cleanup(fep);
 
 	mtip_mii_remove(fep);

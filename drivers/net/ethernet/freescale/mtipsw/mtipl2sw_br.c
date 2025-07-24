@@ -116,7 +116,7 @@ static struct notifier_block mtip_netdevice_nb __read_mostly = {
 	.notifier_call = mtip_netdevice_event,
 };
 
-int mtip_register_notifiers(struct switch_enet_private *fep)
+int mtip_bridge_register_notifiers(struct switch_enet_private *fep)
 {
 	int ret = register_netdevice_notifier(&mtip_netdevice_nb);
 
@@ -126,7 +126,7 @@ int mtip_register_notifiers(struct switch_enet_private *fep)
 	return ret;
 }
 
-void mtip_unregister_notifiers(struct switch_enet_private *fep)
+void mtip_bridge_unregister_notifiers(struct switch_enet_private *fep)
 {
 	unregister_netdevice_notifier(&mtip_netdevice_nb);
 }

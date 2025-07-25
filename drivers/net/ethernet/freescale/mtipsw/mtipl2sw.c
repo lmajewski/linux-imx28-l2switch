@@ -2153,11 +2153,15 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_clk_bulk;
 
+	ret = mtip_switchdev_register_notifiers(fep);
+	if (ret)
+		goto unregister_bridge_notifiers;
+
 	ret = mtip_switch_dma_init(fep);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: ethernet switch init fail (%d)!\n",
 			__func__, ret);
-		goto unregister_notifiers;
+		goto unregister_switchdev_notifiers;
 	}
 
 	ret = mtip_mii_init(fep, pdev);
@@ -2188,7 +2192,9 @@ static int mtip_sw_probe(struct platform_device *pdev)
 			  fep->bd_dma);
 	fep->rx_bd_base = NULL;
 	fep->tx_bd_base = NULL;
- unregister_notifiers:
+ unregister_switchdev_notifiers:
+	mtip_switchdev_unregister_notifiers(fep);
+ unregister_bridge_notifiers:
 	mtip_bridge_unregister_notifiers(fep);
  disable_clk_bulk:
         clk_bulk_disable_unprepare(fep->clk_num, fep->clks);
@@ -2200,6 +2206,7 @@ static void mtip_sw_remove(struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = platform_get_drvdata(pdev);
 
+	mtip_switchdev_unregister_notifiers(fep);
 	mtip_bridge_unregister_notifiers(fep);
 
 	mtip_ndev_cleanup(fep);

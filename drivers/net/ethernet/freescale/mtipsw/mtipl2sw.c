@@ -2151,6 +2151,10 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_clk_bulk;
 
+	ret = mtip_switchdev_register_notifiers(fep);
+	if (ret)
+		goto unregister_bridge_notifiers;
+
 	ret = mtip_ndev_init(fep, pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "%s: Failed to create virtual ndev (%d)\n",
@@ -2198,6 +2202,8 @@ static int mtip_sw_probe(struct platform_device *pdev)
  dma_init_err:
 	mtip_ndev_cleanup(fep);
  ndev_init_err:
+	mtip_switchdev_unregister_notifiers(fep);
+ unregister_bridge_notifiers:
 	mtip_bridge_unregister_notifiers(fep);
  disable_clk_bulk:
         clk_bulk_disable_unprepare(fep->clk_num, fep->clks);
@@ -2210,6 +2216,7 @@ static void mtip_sw_remove(struct platform_device *pdev)
 	struct switch_enet_private *fep = platform_get_drvdata(pdev);
 
 	fec_ptp_stop(pdev);
+	mtip_switchdev_unregister_notifiers(fep);
 	mtip_bridge_unregister_notifiers(fep);
 	mtip_ndev_cleanup(fep);
 

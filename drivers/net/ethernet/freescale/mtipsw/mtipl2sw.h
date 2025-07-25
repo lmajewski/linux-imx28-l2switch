@@ -35,6 +35,7 @@
 #define TX_RING_MOD_MASK        15      /*   for this to work */
 
 #define SWITCH_EPORT_NUMBER	2
+#define SWITCH_HOST_PORT_NUM	0
 
 #if (((RX_RING_SIZE + TX_RING_SIZE) * 8) > PAGE_SIZE)
 #error "L2SWITCH: descriptor ring size constants too large"
@@ -822,6 +823,8 @@ int mtip_set_static_table_entry(unsigned char *mac_addr, unsigned int port,
                                 struct switch_enet_private *fep);
 int mtip_clear_static_table_entry(unsigned char *mac_addr, unsigned int port,
                                   struct switch_enet_private *fep);
+int mtip_switchdev_register_notifiers(struct switch_enet_private *fep);
+void mtip_switchdev_unregister_notifiers(struct switch_enet_private *fep);
 int mtip_port_enable_config(struct switch_enet_private *fep, int port,
 			    bool tx_en, bool rx_en);
 void mtip_clear_atable(struct switch_enet_private *fep);

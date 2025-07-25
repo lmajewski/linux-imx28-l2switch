@@ -294,28 +294,9 @@ void mtip_clear_atable(struct switch_enet_private *fep)
 		mtip_write_atable(fep, index, 0, 0);
 }
 
-/**
- * mtip_update_atable_static - Update switch static address table
- *
- * @mac_addr: Pointer to the array containing MAC address to
- *            be put as static entry
- * @port:     Port bitmask numbers to be added in static entry,
- *            valid values are 1-7
- * @priority: The priority for the static entry in table
- *
- * @fep:      Pointer to the structure describing the switch
- *
- * Updates MAC address lookup table with a static entry.
- *
- * Searches if the MAC address is already there in the block and replaces
- * the older entry with the new one. If MAC address is not there then puts
- * a new entry in the first empty slot available in the block.
- *
- * Return: 0 for a successful update else -ENOSPC when no slot available
- */
-static int mtip_update_atable_static(unsigned char *mac_addr, unsigned int port,
-				     unsigned int priority,
-				     struct switch_enet_private *fep)
+static int __mtip_update_atable_static(unsigned char *mac_addr, unsigned int port,
+                                       unsigned int priority,
+                                       struct switch_enet_private *fep, bool clear)
 {
 	unsigned long block_index, entry, index_end;
 	u32 write_lo, write_hi, read_lo, read_hi;
@@ -340,19 +321,47 @@ static int mtip_update_atable_static(unsigned char *mac_addr, unsigned int port,
 		if (read_lo == write_lo &&
 		    ((read_hi & 0x0000FFFF) ==
 		     (write_hi & 0x0000FFFF))) {
-			mtip_write_atable(fep, entry, write_lo, write_hi);
+			clear ? mtip_write_atable(fep, entry, 0, 0) :
+				mtip_write_atable(fep, entry, write_lo, write_hi);
 			return 0;
 		} else if (!(read_hi & (1 << 16))) {
 			/* Fill this empty slot (valid bit zero),
 			 * assuming no holes in the block
 			 */
-			mtip_write_atable(fep, entry, write_lo, write_hi);
+			clear ? mtip_write_atable(fep, entry, 0, 0) :
+				mtip_write_atable(fep, entry, write_lo, write_hi);
 			return 0;
 		}
 	}
 
 	/* No space available for this static entry */
 	return -ENOSPC;
+}
+
+/**
+ * mtip_update_atable_static - Update switch static address table
+ *
+ * @mac_addr: Pointer to the array containing MAC address to
+ *            be put as static entry
+ * @port:     Port bitmask numbers to be added in static entry,
+ *            valid values are 1-7
+ * @priority: The priority for the static entry in table
+ *
+ * @fep:      Pointer to the structure describing the switch
+ *
+ * Updates MAC address lookup table with a static entry.
+ *
+ * Searches if the MAC address is already there in the block and replaces
+ * the older entry with the new one. If MAC address is not there then puts
+ * a new entry in the first empty slot available in the block.
+ *
+ * Return: 0 for a successful update else -ENOSPC when no slot available
+ */
+static int mtip_update_atable_static(unsigned char *mac_addr, unsigned int port,
+				     unsigned int priority,
+				     struct switch_enet_private *fep)
+{
+	return __mtip_update_atable_static(mac_addr, port, priority, fep, false);
 }
 
 static bool mtip_update_atable_dynamic1(u32 write_lo, u32 write_hi,

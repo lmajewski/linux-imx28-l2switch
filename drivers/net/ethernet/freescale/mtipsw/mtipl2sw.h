@@ -818,6 +818,10 @@ int mtip_port_blocking_config(struct switch_enet_private *fep, int port,
 bool mtip_is_switch_netdev_port(const struct net_device *ndev);
 int mtip_bridge_register_notifiers(struct switch_enet_private *fep);
 void mtip_bridge_unregister_notifiers(struct switch_enet_private *fep);
+int mtip_set_static_table_entry(unsigned char *mac_addr, unsigned int port,
+                                struct switch_enet_private *fep);
+int mtip_clear_static_table_entry(unsigned char *mac_addr, unsigned int port,
+                                  struct switch_enet_private *fep);
 int mtip_port_enable_config(struct switch_enet_private *fep, int port,
 			    bool tx_en, bool rx_en);
 void mtip_clear_atable(struct switch_enet_private *fep);

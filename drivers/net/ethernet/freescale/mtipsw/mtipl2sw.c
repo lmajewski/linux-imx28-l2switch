@@ -356,6 +356,18 @@ static int mtip_update_atable_static(unsigned char *mac_addr, unsigned int port,
 	return __mtip_update_atable_static(mac_addr, port, priority, fep, false);
 }
 
+int mtip_set_static_table_entry(unsigned char *mac_addr, unsigned int port,
+                                struct switch_enet_private *fep)
+{
+	return __mtip_update_atable_static(mac_addr, BIT(port), 7, fep, false);
+}
+
+int mtip_clear_static_table_entry(unsigned char *mac_addr, unsigned int port,
+                                  struct switch_enet_private *fep)
+{
+	return __mtip_update_atable_static(mac_addr, BIT(port), 7, fep, true);
+}
+
 static bool mtip_update_atable_dynamic1(u32 write_lo, u32 write_hi,
 					int block_index, unsigned int port,
 					unsigned int curr_time,

@@ -22,6 +22,89 @@ struct mtip_switchdev_event_work {
 	unsigned long event;
 };
 
+static int mtip_port_attr_br_flags_pre_set(struct net_device *ndev,
+					   struct switchdev_brport_flags flags)
+{
+	if (flags.mask & ~BR_LEARNING)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int mtip_port_stp_state_set(struct mtip_ndev_priv *priv, u8 state)
+{
+	struct switch_enet_private *fep = priv->fep;
+	int port = priv->portnum;
+	int ret = 0;
+
+	switch (state) {
+	case BR_STATE_FORWARDING:
+		ret = mtip_port_enable_config(fep, port, 1, 1);
+		if (ret)
+			break;
+		ret = mtip_port_blocking_config(fep, port, 0);
+		break;
+	case BR_STATE_LEARNING:
+		ret = mtip_port_learning_config(fep, port, 0, 0);
+		break;
+	case BR_STATE_DISABLED:
+		ret = mtip_port_learning_config(fep, port, 1, 0);
+		if (ret)
+			break;
+		ret = mtip_port_enable_config(fep, port, 0, 0);
+		break;
+	case BR_STATE_LISTENING:
+	case BR_STATE_BLOCKING:
+		ret = mtip_port_blocking_config(fep, port, 1);
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	dev_dbg(&fep->pdev->dev, " state: %u\n", state);
+
+	return ret;
+}
+
+static int mtip_port_attr_br_flags_set(struct mtip_ndev_priv *priv,
+				       struct net_device *orig_dev,
+				       struct switchdev_brport_flags flags)
+{
+	return 0;
+}
+
+static int mtip_port_attr_set(struct net_device *ndev, const void *ctx,
+			      const struct switchdev_attr *attr,
+			      struct netlink_ext_ack *extack)
+{
+	struct mtip_ndev_priv *priv = netdev_priv(ndev);
+	struct switch_enet_private *fep = priv->fep;
+	int ret;
+
+	dev_dbg(&fep->pdev->dev, "attr: id %u port: %u\n", attr->id,
+	        priv->portnum);
+
+	switch (attr->id) {
+	case SWITCHDEV_ATTR_ID_PORT_PRE_BRIDGE_FLAGS:
+		ret = mtip_port_attr_br_flags_pre_set(ndev,
+						      attr->u.brport_flags);
+		break;
+	case SWITCHDEV_ATTR_ID_PORT_STP_STATE:
+		ret = mtip_port_stp_state_set(priv, attr->u.stp_state);
+		dev_dbg(&fep->pdev->dev, "stp state: %u\n", attr->u.stp_state);
+		break;
+	case SWITCHDEV_ATTR_ID_PORT_BRIDGE_FLAGS:
+		ret = mtip_port_attr_br_flags_set(priv, attr->orig_dev,
+						  attr->u.brport_flags);
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+		break;
+	}
+
+	return ret;
+}
+
 static void mtip_fdb_offload_notify(struct net_device *ndev,
 				    struct switchdev_notifier_fdb_info *rcv)
 {
@@ -103,6 +186,14 @@ static int mtip_switchdev_event(struct notifier_block *unused,
 	struct switchdev_notifier_fdb_info *fdb_info = ptr;
 	struct mtip_switchdev_event_work *switchdev_work;
 	struct mtip_ndev_priv *priv = netdev_priv(ndev);
+	int err;
+
+	if (event == SWITCHDEV_PORT_ATTR_SET) {
+		err = switchdev_handle_port_attr_set(ndev, ptr,
+						     mtip_is_switch_netdev_port,
+						     mtip_port_attr_set);
+		return notifier_from_errno(err);
+	}
 
 	if (!mtip_is_switch_netdev_port(ndev))
 		return NOTIFY_DONE;

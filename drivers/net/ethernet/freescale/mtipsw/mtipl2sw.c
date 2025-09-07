@@ -911,7 +911,7 @@ static void mtip_switch_tx(struct net_device *dev)
 		}
 
 		if (status & BD_ENET_TX_READY)
-			dev_err(&fep->pdev->dev,
+			dev_err_ratelimited(&fep->pdev->dev,
 				"Enet xmit interrupt and TX_READY.\n");
 
 		/* Deferred means some collisions occurred during transmit,
@@ -921,7 +921,7 @@ static void mtip_switch_tx(struct net_device *dev)
 			dev->stats.collisions++;
 
 		/* Free the sk buffer associated with this last transmit */
-		dev_consume_skb_irq(skb);
+		dev_consume_skb_any(skb);
 		fep->tx_skbuff[fep->skb_dirty] = NULL;
 		fep->skb_dirty = (fep->skb_dirty + 1) & TX_RING_MOD_MASK;
 

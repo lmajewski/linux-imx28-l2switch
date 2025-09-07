@@ -547,18 +547,20 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 
 	/* On some FEC implementations data must be aligned on
 	 * 4-byte boundaries. Use bounce buffers to copy data
-	 * and get it aligned.spin
+	 * and get it aligned.
 	 */
-	if ((unsigned long)bufaddr & MTIP_ALIGNMENT) {
+	if ((unsigned long)bufaddr & MTIP_ALIGNMENT ||
+	    fep->quirks & FEC_QUIRK_SWAP_FRAME) {
 		unsigned int index;
 
 		index = bdp - fep->tx_bd_base;
 		memcpy(fep->tx_bounce[index], skb->data, skb->len);
 		bufaddr = fep->tx_bounce[index];
-	}
 
-	if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
-		swap_buffer(bufaddr, skb->len);
+		if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
+			swap_buffer(bufaddr, skb->len);
+
+	}
 
 	/* Push the data cache so the CPM does not get stale memory
 	 * data.

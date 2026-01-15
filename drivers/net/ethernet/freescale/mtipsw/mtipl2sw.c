@@ -674,16 +674,15 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 	struct mtip_ndev_priv *priv = netdev_priv(dev);
 	struct switch_enet_private *fep = priv->fep;
 	unsigned short	status;
-	unsigned long flags;
 	struct cbd_t *bdp;
 	void *bufaddr;
 
-	spin_lock_irqsave(&fep->hw_lock, flags);
+	spin_lock_bh(&fep->hw_lock);
 
 	if (!fep->link[0] && !fep->link[1]) {
 		/* Link is down or autonegotiation is in progress. */
 		netif_stop_queue(dev);
-		spin_unlock_irqrestore(&fep->hw_lock, flags);
+		spin_unlock_bh(&fep->hw_lock);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -699,7 +698,7 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 		 * This should not happen, since dev->tbusy should be set.
 		 */
 		dev_err(&fep->pdev->dev, "%s: tx queue full!.\n", dev->name);
-		spin_unlock_irqrestore(&fep->hw_lock, flags);
+		spin_unlock_bh(&fep->hw_lock);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -780,7 +779,7 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 
 	fep->cur_tx = bdp;
  err:
-	spin_unlock_irqrestore(&fep->hw_lock, flags);
+	spin_unlock_bh(&fep->hw_lock);
 
 	return NETDEV_TX_OK;
 }
@@ -1033,10 +1032,9 @@ static void mtip_switch_tx(struct net_device *dev)
 	struct switch_enet_private *fep = priv->fep;
 	unsigned short status;
 	struct sk_buff *skb;
-	unsigned long flags;
 	struct cbd_t *bdp;
 
-	spin_lock_irqsave(&fep->hw_lock, flags);
+	spin_lock_bh(&fep->hw_lock);
 	bdp = fep->dirty_tx;
 
 	while (((status = bdp->cbd_sc) & BD_ENET_TX_READY) == 0) {
@@ -1097,7 +1095,7 @@ static void mtip_switch_tx(struct net_device *dev)
 		}
 	}
 	fep->dirty_tx = bdp;
-	spin_unlock_irqrestore(&fep->hw_lock, flags);
+	spin_unlock_bh(&fep->hw_lock);
 }
 
 /* During a receive, the cur_rx points to the current incoming buffer.
@@ -1115,10 +1113,7 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 	struct ethhdr *eth_hdr;
 	int pkt_received = 0;
 	struct sk_buff *skb;
-	unsigned long flags;
 	struct cbd_t *bdp;
-
-	spin_lock_irqsave(&fep->hw_lock, flags);
 
 	/* First, grab all of the stats for the incoming packet.
 	 * These get messed up if we get called due to a busy condition.
@@ -1249,12 +1244,10 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 	} /* while (!((status = bdp->cbd_sc) & BD_ENET_RX_EMPTY)) */
 
 	fep->cur_rx = bdp;
-	spin_unlock_irqrestore(&fep->hw_lock, flags);
 
 	return pkt_received;
 
  err_mem:
-	spin_unlock_irqrestore(&fep->hw_lock, flags);
 	return -ENOMEM;
 }
 

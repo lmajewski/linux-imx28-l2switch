@@ -2139,7 +2139,6 @@ static int mtip_sw_probe(struct platform_device *pdev)
 
 	spin_lock_init(&fep->learn_lock);
 	spin_lock_init(&fep->hw_lock);
-	spin_lock_init(&fep->mii_lock);
 
 	ret = devm_request_irq(&pdev->dev, fep->irq, mtip_interrupt, 0,
 			       dev_name(&pdev->dev), fep);

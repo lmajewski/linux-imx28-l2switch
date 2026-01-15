@@ -270,7 +270,6 @@ struct switch_enet_private {
 
 	/* Locking */
 	spinlock_t hw_lock; /* Lock for HW configuration */
-	spinlock_t mii_lock; /* Lock for MII operation */
 	spinlock_t learn_lock; /* Lock for learning DB adjustments */
 
 	/* NAPI support */

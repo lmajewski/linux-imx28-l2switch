@@ -2176,7 +2176,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	}
 
 	/* Initialize PTP FEC driver */
-	fec_ptp_init(pdev, 0);
+	//fec_ptp_init(pdev, 0);
 
 	/* setup timer for learning aging function */
 	timer_setup(&fep->timer_aging, mtip_aging_timer, 0);

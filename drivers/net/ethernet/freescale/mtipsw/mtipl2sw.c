@@ -574,10 +574,9 @@ mtip_atable_dynamicms_learn_migration(struct switch_enet_private *fep,
 	u8 port = MTIP_PORT_FORWARDING_INIT;
 	struct mtip_port_info *port_info;
 	u32 rx_mac_lo, rx_mac_hi;
-	unsigned long flags;
 	int index;
 
-	spin_lock_irqsave(&fep->learn_lock, flags);
+	spin_lock(&fep->learn_lock);
 
 	if (mac && is_valid_ether_addr(mac)) {
 		rx_mac_lo = (u32)((mac[3] << 24) | (mac[2] << 16) |
@@ -609,7 +608,7 @@ mtip_atable_dynamicms_learn_migration(struct switch_enet_private *fep,
 	if (rx_port)
 		*rx_port = port;
 
-	spin_unlock_irqrestore(&fep->learn_lock, flags);
+	spin_unlock(&fep->learn_lock);
 }
 
 static void mtip_aging_timer(struct timer_list *t)

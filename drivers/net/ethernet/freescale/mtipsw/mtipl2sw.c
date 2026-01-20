@@ -2202,7 +2202,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static void mtip_sw_remove(struct platform_device *pdev)
+static int mtip_sw_remove(struct platform_device *pdev)
 {
 	struct switch_enet_private *fep = platform_get_drvdata(pdev);
 
@@ -2217,6 +2217,8 @@ static void mtip_sw_remove(struct platform_device *pdev)
 	clk_bulk_disable_unprepare(fep->clk_num, fep->clks);
 
 	platform_set_drvdata(pdev, NULL);
+
+	return 0;
 }
 
 static struct platform_driver mtipl2plat_driver = {

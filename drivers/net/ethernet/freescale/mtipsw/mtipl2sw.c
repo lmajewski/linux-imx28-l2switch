@@ -614,8 +614,7 @@ mtip_atable_dynamicms_learn_migration(struct switch_enet_private *fep,
 
 static void mtip_mgnt_timer(struct timer_list *t)
 {
-	struct switch_enet_private *fep = timer_container_of(fep, t,
-							     timer_mgnt);
+	struct switch_enet_private *fep = from_timer(fep, t, timer_mgnt);
 
 	mtip_atable_dynamicms_learn_migration(fep, mtip_get_time(),
 					      NULL, NULL);

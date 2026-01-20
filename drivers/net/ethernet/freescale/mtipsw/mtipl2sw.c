@@ -2185,7 +2185,7 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	return 0;
 
  mdiobus_free_memory:
-	mdiobus_free(fep->mii_bus);
+	mtip_mii_remove(fep);
  dma_free_coherent_memory:
 	dma_free_coherent(&fep->pdev->dev, PAGE_SIZE, fep->rx_bd_base,
 			  fep->bd_dma);

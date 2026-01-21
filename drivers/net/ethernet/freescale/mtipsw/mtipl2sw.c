@@ -1989,6 +1989,11 @@ static int mtip_sw_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	fep->clk_ptp = devm_clk_get_optional_enabled(&pdev->dev, "ptp");
+	if (IS_ERR(fep->clk_ptp))
+		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_ptp),
+				     "Unable to acquire 'ptp' clock\n");
+
 	/* setup MII interface for external switch ports */
 	mtip_enet_init(fep, 1);
 	mtip_enet_init(fep, 2);

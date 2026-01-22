@@ -157,6 +157,55 @@
 	status = "okay";
 };
 
+&eth_switch {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_fec0>, <&pinctrl_fec1>;
+	status = "okay";
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+	ethernet-ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+		mtip_port1: port1@1 {
+			reg = <1>;
+			label = "lan0";
+			phy-mode = "rmii";
+			phy-handle = <&swethphy0>;
+		};
+
+		mtip_port2: port2@2 {
+			reg = <2>;
+			label = "lan1";
+			phy-mode = "rmii";
+			phy-handle = <&swethphy1>;
+		};
+	};
+
+	mdio@0 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+		swethphy0: ethernet-phy@1 {
+			reg = <1>;
+			clocks = <&clks VF610_CLK_ENET_50M>;
+			clock-names = "rmii-ref";
+		};
+	};
+
+	mdio@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		swethphy1: ethernet-phy@1 {
+			reg = <1>;
+			clocks = <&clks VF610_CLK_ENET_50M>;
+			clock-names = "rmii-ref";
+		};
+	};
+};
+
 &fec0 {
 	phy-mode = "rmii";
 	phy-handle = <&ethphy0>;

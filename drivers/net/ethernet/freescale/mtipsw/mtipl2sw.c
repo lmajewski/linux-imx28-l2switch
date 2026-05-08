@@ -623,11 +623,32 @@ static void mtip_aging_timer(struct timer_list *t)
 
 static void esw_mac_addr_static(struct switch_enet_private *fep)
 {
+	unsigned char reserved_mac[6] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x00};
 	int i;
 
 	for (i = 0; i < SWITCH_EPORT_NUMBER; i++)
 		mtip_update_atable_static((unsigned char *)
 					  fep->ndev[i]->dev_addr, 7, 7, fep);
+
+	/*
+	 * Prevent forwarding of reserved MAC addresses - according to:
+	 *
+	 * IEEE 802.1D Table 7-10 Reserved addresses
+	 * Assignment		 		Value
+	 * Bridge Group Address		01-80-C2-00-00-00
+	 * (MAC Control) 802.3		01-80-C2-00-00-01
+	 * (Link Aggregation) 802.3	01-80-C2-00-00-02
+	 * 802.1X PAE address		01-80-C2-00-00-03
+	 *
+	 * 802.1AB LLDP 		01-80-C2-00-00-0E
+	 *
+	 * Others reserved for future standardization
+	 */
+	for (; reserved_mac[5] < 0x4; reserved_mac[5]++)
+		mtip_set_static_table_entry(reserved_mac, 0, fep);
+
+	reserved_mac[5] = 0xE;
+	mtip_set_static_table_entry(reserved_mac, 0, fep);
 }
 
 static void mtip_config_switch(struct switch_enet_private *fep)

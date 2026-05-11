@@ -35,7 +35,7 @@ static int mtip_ndev_port_link(struct net_device *ndev,
 
 		fep->br_offload = 1;
 		mtip_switch_dis_port_separation(fep);
-		mtip_clear_atable(fep);
+		mtip_clear_atable_dynamic_entries(fep);
 	}
 
 	if (!priv->master_dev)

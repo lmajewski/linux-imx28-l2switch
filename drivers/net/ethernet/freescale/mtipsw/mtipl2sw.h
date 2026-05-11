@@ -828,6 +828,7 @@ void mtip_switchdev_unregister_notifiers(struct switch_enet_private *fep);
 int mtip_port_enable_config(struct switch_enet_private *fep, int port,
 			    bool tx_en, bool rx_en);
 void mtip_clear_atable(struct switch_enet_private *fep);
+void mtip_clear_atable_dynamic_entries(struct switch_enet_private *fep);
 /* PTP */
 void fec_ptp_init(struct platform_device *pdev, int irq_idx);
 void fec_ptp_stop(struct platform_device *pdev);

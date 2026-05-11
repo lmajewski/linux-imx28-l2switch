@@ -293,6 +293,21 @@ void mtip_clear_atable(struct switch_enet_private *fep)
 		mtip_write_atable(fep, index, 0, 0);
 }
 
+void mtip_clear_atable_dynamic_entries(struct switch_enet_private *fep)
+{
+	u32 read_lo, read_hi;
+	int index;
+
+	for (index = 0; index < MTIP_ATABLE_MEM_NUM_ENTRIES; index++) {
+		mtip_read_atable(fep, index, &read_lo, &read_hi);
+		bool is_static = (read_hi >> AT_ENTRY_TYPE_shift) & 0x1;
+		if (is_static)
+			continue;
+
+		mtip_write_atable(fep, index, 0, 0);
+	}
+}
+
 static int mtip_port_fdb_do_dump(const unsigned char *addr, bool is_static,
                                  void *data)
 {

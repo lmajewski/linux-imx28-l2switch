@@ -75,7 +75,7 @@ static void mtip_netdevice_port_unlink(struct net_device *ndev)
 	if (fep->br_members && fep->br_offload) {
 		fep->br_offload = 0;
 		mtip_switch_en_port_separation(fep);
-		mtip_clear_atable(fep);
+		mtip_clear_atable_dynamic_entries(fep);
 	}
 }
 

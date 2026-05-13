@@ -93,7 +93,7 @@ static void mtip_enet_init(struct switch_enet_private *fep, int port)
 	if (port == 2)
 		enet_addr += MCF_ESW_ENET_PORT_OFFSET;
 
-	reg = MCF_FEC_RCR_PROM | MCF_FEC_RCR_MII_MODE |
+	reg = MCF_FEC_RCR_PROM | MCF_FEC_RCR_MII_MODE | MCF_FEC_RCR_CRC_FWD |
 		MCF_FEC_RCR_MAX_FL(1522);
 
 	if (fep->phy_interface[port - 1] == PHY_INTERFACE_MODE_RMII)

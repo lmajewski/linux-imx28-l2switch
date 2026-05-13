@@ -2159,6 +2159,8 @@ static int mtip_sw_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(fep->clk_ptp),
 				     "Unable to acquire 'ptp' clock\n");
 
+	mtip_clear_atable(fep);
+
 	pr_err("%s: ESW IP REV: 0x%x\n", __func__, readl(fep->hwp + ESW_REVISION));
 	/* setup MII interface for external switch ports */
 	mtip_enet_init(fep, 1);

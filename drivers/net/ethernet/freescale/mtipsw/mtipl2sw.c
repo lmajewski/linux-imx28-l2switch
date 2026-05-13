@@ -972,7 +972,6 @@ static void mtip_switch_restart(struct net_device *dev, int duplex0,
 
 	mtip_configure_enet_mii(fep, 1);
 	mtip_configure_enet_mii(fep, 2);
-	mtip_clear_atable(fep);
 
 	/* And last, enable the transmit and receive processing */
 	writel(MCF_ESW_RDAR_R_DES_ACTIVE, fep->hwp + ESW_RDAR);

@@ -792,6 +792,16 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 	netif_trans_update(dev);
 	skb_tx_timestamp(skb);
 
+	/* As frames with 01-80-C2-00-00-0X multicast MAC address are
+	 * written as "static" entries to the switch MAC address table
+	 * with only port 0 (MGNT) as destination - when sending one
+	 * needs to 'bypas' the MAC address table check (as it would
+	 * drop them) and force sending to required engress port from
+	 * port 0 (management one).
+	 */
+	if (unlikely(is_link_local_ether_addr(eth_hdr(skb)->h_dest)))
+		mtip_forced_forward(fep, port, 1);
+
 	/* For port separation - force sending via specified port */
 	if (!fep->br_offload && port != 0)
 		mtip_forced_forward(fep, port, 1);

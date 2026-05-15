@@ -323,12 +323,9 @@ int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
 	}
 
     /* Set a default Port VLAN ID (PVID) for each port. */
-    writel(FIELD_PREP(MCF_ESW_PID_VLANID_MASK, 0x10),
-           fep->hwp + ESW_PID(0));
-    writel(FIELD_PREP(MCF_ESW_PID_VLANID_MASK, 0x11),
-           fep->hwp + ESW_PID(1));
-    writel(FIELD_PREP(MCF_ESW_PID_VLANID_MASK, 0x12),
-           fep->hwp + ESW_PID(2));
+    writel(MCF_ESW_PID_VLANID(0x10), fep->hwp + ESW_PID(0));
+    writel(MCF_ESW_PID_VLANID(0x11), fep->hwp + ESW_PID(1));
+    writel(MCF_ESW_PID_VLANID(0x12), fep->hwp + ESW_PID(2));
 
     /* Enable VLAN input manipulation on all ports */
     writel(MCF_ESW_VIMEN_EN0 |
@@ -338,26 +335,26 @@ int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
 
     /* Configure the VLAN input manipulation mode for all ports */
     reg = 0;
-    reg |= FIELD_PREP(MCF_ESW_VIMSEL_IM0_MASK, input_mode);
-    reg |= FIELD_PREP(MCF_ESW_VIMSEL_IM1_MASK, input_mode);
-    reg |= FIELD_PREP(MCF_ESW_VIMSEL_IM2_MASK, input_mode);
+    reg |= MCF_ESW_VIMSEL_IM0(input_mode);
+    reg |= MCF_ESW_VIMSEL_IM1(input_mode);
+    reg |= MCF_ESW_VIMSEL_IM2(input_mode);
     writel(reg, fep->hwp + ESW_VIMSEL);
 
     /* Configure the VLAN output manipulation mode for all ports */
     reg = 0;
-    reg |= FIELD_PREP(MCF_ESW_VOMSEL_OM0_MASK, output_mode);
-    reg |= FIELD_PREP(MCF_ESW_VOMSEL_OM1_MASK, output_mode);
-    reg |= FIELD_PREP(MCF_ESW_VOMSEL_OM2_MASK, output_mode);
+    reg |= MCF_ESW_VOMSEL_OM0(output_mode);
+    reg |= MCF_ESW_VOMSEL_OM1(output_mode);
+    reg |= MCF_ESW_VOMSEL_OM2(output_mode);
     writel(reg, fep->hwp + ESW_VOMSEL);
 
     /* Allow VLAN ID 0 (priority-tagged frames) on all ports */
-    writel(FIELD_PREP(MCF_ESW_VRES_VLANID_MASK, 0) |
+    writel(MCF_ESW_VRES_VLANID(0) |
            MCF_ESW_VRES_P0 |
            MCF_ESW_VRES_P1 |
            MCF_ESW_VRES_P2,
            fep->hwp + ESW_VRES(3));
 
-    dev_dbg(&fep->pdev->dev,
+    dev_err(&fep->pdev->dev,
         "basic VLAN init done: VIMEN=0x%08x VIMSEL=0x%08x "
         "VOMSEL=0x%08x VLANV=0x%08x\n",
         readl(fep->hwp + ESW_VIMEN),
@@ -365,7 +362,7 @@ int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
         readl(fep->hwp + ESW_VOMSEL),
         readl(fep->hwp + ESW_VLANV));
 
-    dev_dbg(&fep->pdev->dev,
+    dev_err(&fep->pdev->dev,
         "DBCR=0x%08x DMCR=0x%08x VRES3=0x%08x\n",
         readl(fep->hwp + ESW_DBCR),
         readl(fep->hwp + ESW_DMCR),

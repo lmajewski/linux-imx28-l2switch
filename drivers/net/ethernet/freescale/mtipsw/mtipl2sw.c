@@ -701,6 +701,8 @@ static void mtip_config_switch(struct switch_enet_private *fep)
 	/* Setup VLANs to provide port separation */
 	if (!fep->br_offload)
 		mtip_switch_en_port_separation(fep);
+	else
+        mtip_switch_bridge_vlan_init(fep, 3, 2);
 }
 
 static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,

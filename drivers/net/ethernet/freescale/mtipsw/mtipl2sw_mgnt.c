@@ -301,6 +301,78 @@ void mtip_switch_dis_port_separation(struct switch_enet_private *fep)
 	writel(0, fep->hwp + ESW_VOMSEL);
 }
 
+int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
+                 int input_mode,
+                 int output_mode)
+{
+    u32 reg;
+    /* Only input_modes from 0 to 4 are valid*/
+    if (input_mode < 0 || input_mode > 4) {
+		dev_err(&fep->pdev->dev,
+			"%s: VLAN input processing mode (%d) not supported\n",
+			__func__, input_mode);
+		return -EINVAL;
+	}
+
+	/* Only output_modes from 0 to 4 are valid*/
+    if (output_mode < 0 || output_mode > 4) {
+		dev_err(&fep->pdev->dev,
+			"%s: VLAN output processing mode (%d) not supported\n",
+			__func__, output_mode);
+		return -EINVAL;
+	}
+
+    /* Set a default Port VLAN ID (PVID) for each port. */
+    writel(FIELD_PREP(MCF_ESW_PID_VLANID_MASK, 0x10),
+           fep->hwp + ESW_PID(0));
+    writel(FIELD_PREP(MCF_ESW_PID_VLANID_MASK, 0x11),
+           fep->hwp + ESW_PID(1));
+    writel(FIELD_PREP(MCF_ESW_PID_VLANID_MASK, 0x12),
+           fep->hwp + ESW_PID(2));
+
+    /* Enable VLAN input manipulation on all ports */
+    writel(MCF_ESW_VIMEN_EN0 |
+           MCF_ESW_VIMEN_EN1 |
+           MCF_ESW_VIMEN_EN2,
+           fep->hwp + ESW_VIMEN);
+
+    /* Configure the VLAN input manipulation mode for all ports */
+    reg = 0;
+    reg |= FIELD_PREP(MCF_ESW_VIMSEL_IM0_MASK, input_mode);
+    reg |= FIELD_PREP(MCF_ESW_VIMSEL_IM1_MASK, input_mode);
+    reg |= FIELD_PREP(MCF_ESW_VIMSEL_IM2_MASK, input_mode);
+    writel(reg, fep->hwp + ESW_VIMSEL);
+
+    /* Configure the VLAN output manipulation mode for all ports */
+    reg = 0;
+    reg |= FIELD_PREP(MCF_ESW_VOMSEL_OM0_MASK, output_mode);
+    reg |= FIELD_PREP(MCF_ESW_VOMSEL_OM1_MASK, output_mode);
+    reg |= FIELD_PREP(MCF_ESW_VOMSEL_OM2_MASK, output_mode);
+    writel(reg, fep->hwp + ESW_VOMSEL);
+
+    /* Allow VLAN ID 0 (priority-tagged frames) on all ports */
+    writel(FIELD_PREP(MCF_ESW_VRES_VLANID_MASK, 0) |
+           MCF_ESW_VRES_P0 |
+           MCF_ESW_VRES_P1 |
+           MCF_ESW_VRES_P2,
+           fep->hwp + ESW_VRES(3));
+
+    dev_dbg(&fep->pdev->dev,
+        "basic VLAN init done: VIMEN=0x%08x VIMSEL=0x%08x "
+        "VOMSEL=0x%08x VLANV=0x%08x\n",
+        readl(fep->hwp + ESW_VIMEN),
+        readl(fep->hwp + ESW_VIMSEL),
+        readl(fep->hwp + ESW_VOMSEL),
+        readl(fep->hwp + ESW_VLANV));
+
+    dev_dbg(&fep->pdev->dev,
+        "DBCR=0x%08x DMCR=0x%08x VRES3=0x%08x\n",
+        readl(fep->hwp + ESW_DBCR),
+        readl(fep->hwp + ESW_DMCR),
+        readl(fep->hwp + ESW_VRES(3)));
+	return 0;
+}
+
 int mtip_port_broadcast_config(struct switch_enet_private *fep,
 			       int port, bool enable)
 {

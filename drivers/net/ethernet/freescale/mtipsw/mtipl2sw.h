@@ -809,6 +809,8 @@ int mtip_vlan_output_process(struct switch_enet_private *fep, int port,
 			     int mode);
 void mtip_switch_en_port_separation(struct switch_enet_private *fep);
 void mtip_switch_dis_port_separation(struct switch_enet_private *fep);
+int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep, int input_mode,
+                 int output_mode);
 int mtip_port_broadcast_config(struct switch_enet_private *fep,
 			       int port, bool enable);
 int mtip_forced_forward(struct switch_enet_private *fep, int port, bool enable);

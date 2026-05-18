@@ -321,7 +321,7 @@ int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
 			__func__, output_mode);
 		return -EINVAL;
 	}
-
+#if 0
     /* Set a default Port VLAN ID (PVID) for each port. */
     writel(MCF_ESW_PID_VLANID(0x10), fep->hwp + ESW_PID(0));
     writel(MCF_ESW_PID_VLANID(0x11), fep->hwp + ESW_PID(1));
@@ -347,12 +347,40 @@ int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
     reg |= MCF_ESW_VOMSEL_OM2(output_mode);
     writel(reg, fep->hwp + ESW_VOMSEL);
 
+    writel(MCF_ESW_VRES_VLANID(0x10) |
+           MCF_ESW_VRES_P0 |
+           MCF_ESW_VRES_P1 |
+           MCF_ESW_VRES_P2,
+           fep->hwp + ESW_VRES(0));
+
+    writel(MCF_ESW_VRES_VLANID(0x11) |
+           MCF_ESW_VRES_P0 |
+           MCF_ESW_VRES_P1 |
+           MCF_ESW_VRES_P2,
+           fep->hwp + ESW_VRES(1));
+
+    writel(MCF_ESW_VRES_VLANID(0x12) |
+           MCF_ESW_VRES_P0 |
+           MCF_ESW_VRES_P1 |
+           MCF_ESW_VRES_P2,
+           fep->hwp + ESW_VRES(2));
+#endif
+
+    writel(0x7 | (0x7 << 16), fep->hwp + ESW_VLANV);
+
     /* Allow VLAN ID 0 (priority-tagged frames) on all ports */
     writel(MCF_ESW_VRES_VLANID(0) |
            MCF_ESW_VRES_P0 |
            MCF_ESW_VRES_P1 |
            MCF_ESW_VRES_P2,
            fep->hwp + ESW_VRES(3));
+
+    /* Allow VLAN ID 2 */
+    writel(MCF_ESW_VRES_VLANID(2) |
+           MCF_ESW_VRES_P0 |
+           MCF_ESW_VRES_P1 |
+           MCF_ESW_VRES_P2,
+           fep->hwp + ESW_VRES(4));
 
     dev_err(&fep->pdev->dev,
         "basic VLAN init done: VIMEN=0x%08x VIMSEL=0x%08x "

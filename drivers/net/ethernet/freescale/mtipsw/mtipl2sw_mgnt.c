@@ -347,13 +347,6 @@ int mtip_switch_bridge_vlan_init(struct switch_enet_private *fep,
     reg |= MCF_ESW_VOMSEL_OM2(output_mode);
     writel(reg, fep->hwp + ESW_VOMSEL);
 
-    /* Allow VLAN ID 0 (priority-tagged frames) on all ports */
-    writel(MCF_ESW_VRES_VLANID(0) |
-           MCF_ESW_VRES_P0 |
-           MCF_ESW_VRES_P1 |
-           MCF_ESW_VRES_P2,
-           fep->hwp + ESW_VRES(3));
-
     dev_err(&fep->pdev->dev,
         "basic VLAN init done: VIMEN=0x%08x VIMSEL=0x%08x "
         "VOMSEL=0x%08x VLANV=0x%08x\n",

@@ -44,7 +44,7 @@ static int mtip_ndev_port_link(struct net_device *ndev,
 	fep->br_members |= BIT(priv->portnum - 1);
 
 	if (fep->br_members && fep->br_offload)
-		mtip_switch_bridge_vlan_init(fep, 3, 2);
+		mtip_switch_bridge_vlan_init(fep, 2, 2);
 
 	err = switchdev_bridge_port_offload(ndev, ndev, NULL, NULL, NULL,
 					    false, extack);

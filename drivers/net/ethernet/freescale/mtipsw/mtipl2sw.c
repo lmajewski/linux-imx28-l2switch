@@ -693,8 +693,8 @@ static void mtip_config_switch(struct switch_enet_private *fep)
 	mtip_port_broadcast_config(fep, 1, 1);
 	mtip_port_broadcast_config(fep, 2, 1);
 
-	/* Disable multicast receive on port 0 (MGNT) */
-	mtip_port_multicast_config(fep, 0, 0);
+	/* Enable multicast receive on port 0 (MGNT) */
+	mtip_port_multicast_config(fep, 0, 1);
 	mtip_port_multicast_config(fep, 1, 1);
 	mtip_port_multicast_config(fep, 2, 1);
 

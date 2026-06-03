@@ -101,7 +101,6 @@ static void mtip_enet_init(struct switch_enet_private *fep, int port)
 
 	writel(reg, enet_addr + MCF_FEC_RCR);
 
-	writel(MCF_FEC_TCR_FDEN, enet_addr + MCF_FEC_TCR);
 	writel(MCF_FEC_ECR_BYTESWP | MCF_FEC_ECR_ETHER_EN,
 	       enet_addr + MCF_FEC_ECR);
 

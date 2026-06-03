@@ -910,9 +910,9 @@ static void mtip_configure_enet_mii(struct switch_enet_private *fep, int port)
 
 	/* TCR */
 	if (duplex == DUPLEX_FULL)
-		writel(0x1C, enet_addr + MCF_FEC_TCR);
+		writel(MCF_FEC_TCR_FDEN, enet_addr + MCF_FEC_TCR);
 	else
-		writel(0x18, enet_addr + MCF_FEC_TCR);
+		writel(0, enet_addr + MCF_FEC_TCR);
 
 	/* ECR */
 	writel(readl(enet_addr + MCF_FEC_ECR) | MCF_FEC_ECR_ETHER_EN,

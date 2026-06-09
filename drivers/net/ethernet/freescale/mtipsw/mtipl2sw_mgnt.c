@@ -41,7 +41,7 @@ int mtip_vlan_input_process(struct switch_enet_private *fep,
 	}
 
 	if (vlan_verify_en == 1 &&
-	    (vlan_domain_num < 0 || vlan_domain_num > 32)) {
+	    (vlan_domain_num < 0 || vlan_domain_num > 31)) {
 		dev_err(&fep->pdev->dev, "%s: Domain out of range\n", __func__);
 		return -EINVAL;
 	}

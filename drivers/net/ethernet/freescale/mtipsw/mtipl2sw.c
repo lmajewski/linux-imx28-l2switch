@@ -731,8 +731,8 @@ static netdev_tx_t mtip_start_xmit_port(struct sk_buff *skb,
 		/* All transmit buffers are full. Bail out.
 		 * This should not happen, since dev->tbusy should be set.
 		 */
-		dev_err(&fep->pdev->dev, "%s: tx queue full!.\n", dev->name);
 		spin_unlock_bh(&fep->hw_lock);
+		dev_err_ratelimited(&fep->pdev->dev, "%s: tx queue full!.\n", dev->name);
 		return NETDEV_TX_BUSY;
 	}
 

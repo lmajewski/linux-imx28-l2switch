@@ -801,8 +801,8 @@ int mtip_vlan_input_process(struct switch_enet_private *fep,
 			    int vlan_verify_en, int vlan_domain_num,
 			    int vlan_domain_port);
 int mtip_set_vlan_verification(struct switch_enet_private *fep, int port,
-			       int vlan_domain_verify_en,
-			       int vlan_discard_unknown_en);
+			       bool vlan_domain_verify_en,
+			       bool vlan_discard_unknown_en);
 int mtip_port_multicast_config(struct switch_enet_private *fep, int port,
 			       bool enable);
 int mtip_vlan_output_process(struct switch_enet_private *fep, int port,

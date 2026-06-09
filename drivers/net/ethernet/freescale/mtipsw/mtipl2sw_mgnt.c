@@ -106,8 +106,8 @@ int mtip_vlan_output_process(struct switch_enet_private *fep, int port,
 }
 
 int mtip_set_vlan_verification(struct switch_enet_private *fep, int port,
-			       int vlan_domain_verify_en,
-			       int vlan_discard_unknown_en)
+			       bool vlan_domain_verify_en,
+			       bool vlan_discard_unknown_en)
 {
 	if (port < 0 || port > 2) {
 		dev_err(&fep->pdev->dev, "%s: Port (%d) not supported!\n",

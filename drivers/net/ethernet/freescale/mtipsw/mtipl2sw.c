@@ -1075,6 +1075,20 @@ static void mtip_timeout_work(struct work_struct *work)
 		mtip_init_tx_descriptors(fep);
 		mtip_switch_restart(dev, fep->full_duplex[0],
 				    fep->full_duplex[1]);
+
+		/* Reduce P0 backpressure threshold.
+		 * The ESW_P0BCT is set to P0BC_THRESHOLD in
+		 * mtip_switch_restart() - i.e. it is set back
+		 * to the original value at each call of this function.
+		 *
+		 * The code below reduces temporarily (by half) the threshold
+		 * to restore communication.
+		 */
+		u32 reg = readl(fep->hwp + ESW_P0BCT) >> 1;
+		if (reg <= MTIP_L2_MINIMAL_CELLS)
+			reg = MTIP_L2_MINIMAL_CELLS + 1;
+		writel(reg, fep->hwp + ESW_P0BCT);
+
 		netif_tx_wake_all_queues(dev);
 		netif_tx_unlock_bh(dev);
 		napi_enable(&fep->napi);

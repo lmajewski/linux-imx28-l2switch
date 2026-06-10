@@ -1040,6 +1040,24 @@ static void mtip_timeout(struct net_device *dev, unsigned int txqueue)
 	schedule_work(&priv->tx_timeout_work);
 }
 
+static void mtip_init_tx_descriptors(struct switch_enet_private *fep)
+{
+	struct cbd_t *bdp;
+	int i;
+
+	bdp = fep->tx_bd_base;
+	for (i = 0; i < TX_RING_SIZE; i++) {
+		/* Initialize the BD for every fragment in the page */
+		bdp->cbd_sc = 0;
+		bdp->cbd_bufaddr = 0;
+		bdp++;
+	}
+
+	/* Set the last buffer to wrap */
+	bdp--;
+	bdp->cbd_sc |= BD_SC_WRAP;
+}
+
 static void mtip_timeout_work(struct work_struct *work)
 {
 	struct mtip_ndev_priv *priv =
@@ -1051,6 +1069,7 @@ static void mtip_timeout_work(struct work_struct *work)
 	if (netif_device_present(dev) || netif_running(dev)) {
 		napi_disable(&fep->napi);
 		netif_tx_lock_bh(dev);
+		mtip_init_tx_descriptors(fep);
 		mtip_switch_restart(dev, fep->full_duplex[0],
 				    fep->full_duplex[1]);
 		netif_tx_wake_all_queues(dev);
@@ -1934,18 +1953,7 @@ static int __init mtip_switch_dma_init(struct switch_enet_private *fep)
 	bdp--;
 	bdp->cbd_sc |= BD_SC_WRAP;
 
-	/* ...and the same for transmit */
-	bdp = fep->tx_bd_base;
-	for (i = 0; i < TX_RING_SIZE; i++) {
-		/* Initialize the BD for every fragment in the page */
-		bdp->cbd_sc = 0;
-		bdp->cbd_bufaddr = 0;
-		bdp++;
-	}
-
-	/* Set the last buffer to wrap */
-	bdp--;
-	bdp->cbd_sc |= BD_SC_WRAP;
+	mtip_init_tx_descriptors(fep);
 
 	return 0;
 }

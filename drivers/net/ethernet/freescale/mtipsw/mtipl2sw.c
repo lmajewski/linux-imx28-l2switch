@@ -953,6 +953,9 @@ static void mtip_switch_restart(struct net_device *dev, int duplex0,
 	 */
 	writel(P0BC_THRESHOLD, fep->hwp + ESW_P0BCT);
 
+	/* Set minimal number of CELLS before HW start dropping frames */
+	writel(MTIP_L2_MINIMAL_CELLS, fep->hwp + ESW_LMT);
+
 	/* Set maximum receive buffer size */
 	writel(PKT_MAXBLR_SIZE, fep->hwp + ESW_MRBR);
 

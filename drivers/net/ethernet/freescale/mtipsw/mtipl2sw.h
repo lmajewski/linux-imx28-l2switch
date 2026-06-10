@@ -202,6 +202,20 @@ struct mtip_addr_table {
 
 /* Port 0 backpressure congestion threshold */
 #define P0BC_THRESHOLD		0x40
+
+/* MTIP L2 switch minimal number of cells before frames
+ * are dropped in switch hardware.
+ * CELL = 256B = 64 x 32 bit
+ * Total number of cells (24 KiB) = 0x60
+ * After reset = 0x9 -> 9 x 256 = 2304B
+ * The VFXXXRM.pdf at 11.5.3.27 says that this value shall
+ * be lager than two max frames size.
+ * Hence the value of 0xC = 3072B (> 2 * 1522B)
+ *
+ * The value in ESW_P0BCT shall be always greather.
+ */
+#define MTIP_L2_MINIMAL_CELLS	0xC
+
 #define LEARNING_AGING_INTERVAL 100
 /* Info received from Hardware Learning FIFO,
  * holding MAC address and corresponding Hash Value and

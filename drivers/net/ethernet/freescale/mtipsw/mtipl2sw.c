@@ -1027,6 +1027,9 @@ static void mtip_print_hw_state(struct net_device *dev)
 			 (int)bdp->cbd_bufaddr);
 		bdp++;
 	}
+	dev_info(&dev->dev, "ESW: P0BCT: 0x%x LMT: 0x%x MMSR: 0x%x PCSR: 0x%x\n",
+	         readl(fep->hwp + ESW_P0BCT), readl(fep->hwp + ESW_LMT),
+	         readl(fep->hwp + ESW_MMSR), readl(fep->hwp + ESW_PCSR));
 	spin_unlock_bh(&fep->hw_lock);
 }
 
@@ -1035,7 +1038,7 @@ static void mtip_timeout(struct net_device *dev, unsigned int txqueue)
 	struct mtip_ndev_priv *priv = netdev_priv(dev);
 
 	dev->stats.tx_errors++;
-	DO_ONCE(mtip_print_hw_state, dev);
+	mtip_print_hw_state(dev);
 
 	schedule_work(&priv->tx_timeout_work);
 }

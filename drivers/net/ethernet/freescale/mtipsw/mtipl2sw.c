@@ -993,44 +993,56 @@ static void mtip_switch_restart(struct net_device *dev, int duplex0,
 	mtip_config_switch(fep);
 }
 
-static void mtip_timeout(struct net_device *dev, unsigned int txqueue)
+static void mtip_print_hw_state(struct net_device *dev)
 {
 	struct mtip_ndev_priv *priv = netdev_priv(dev);
 	struct switch_enet_private *fep = priv->fep;
 	struct cbd_t *bdp;
 	int i;
 
-	dev->stats.tx_errors++;
+	spin_lock_bh(&fep->hw_lock);
+	dev_info(&dev->dev, "%s: transmit timed out.\n", dev->name);
+	dev_info(&dev->dev,
+		 "Ring data: cur_tx 0x%p%s, dirty_tx 0x%p cur_rx: 0x%p\n",
+		 fep->cur_tx, fep->tx_full ? " (full)" : "", fep->dirty_tx,
+		 fep->cur_rx);
 
-	if (IS_ENABLED(CONFIG_SWITCH_DEBUG)) {
-		dev_info(&dev->dev, "%s: transmit timed out.\n", dev->name);
-		dev_info(&dev->dev,
-			 "Ring data: cur_tx %lx%s, dirty_tx %lx cur_rx: %lx\n",
-			 (unsigned long)fep->cur_tx,
-			 fep->tx_full ? " (full)" : "",
-			 (unsigned long)fep->dirty_tx,
-			 (unsigned long)fep->cur_rx);
-
-		bdp = fep->tx_bd_base;
-		dev_info(&dev->dev, " tx: %u buffers\n", TX_RING_SIZE);
-		for (i = 0; i < TX_RING_SIZE; i++) {
-			dev_info(&dev->dev, "  %08lx: %04x %04x %08x\n",
-				 (kernel_ulong_t)bdp, bdp->cbd_sc,
-				 bdp->cbd_datlen, (int)bdp->cbd_bufaddr);
-			bdp++;
-		}
-
-		bdp = fep->rx_bd_base;
-		dev_info(&dev->dev, " rx: %lu buffers\n",
-			 (unsigned long)RX_RING_SIZE);
-		for (i = 0 ; i < RX_RING_SIZE; i++) {
-			dev_info(&dev->dev, "  %08lx: %04x %04x %08x\n",
-				 (kernel_ulong_t)bdp,
-				 bdp->cbd_sc, bdp->cbd_datlen,
-				 (int)bdp->cbd_bufaddr);
-			bdp++;
-		}
+	bdp = fep->tx_bd_base;
+	dev_info(&dev->dev, " tx: %u buffers\n", TX_RING_SIZE);
+	for (i = 0; i < TX_RING_SIZE; i++) {
+		dev_info(&dev->dev, "  0x%p: %04x %04x %08x\n",
+			 bdp, bdp->cbd_sc, bdp->cbd_datlen,
+			 (int)bdp->cbd_bufaddr);
+		bdp++;
 	}
+
+	bdp = fep->rx_bd_base;
+	dev_info(&dev->dev, " rx: %lu buffers\n", RX_RING_SIZE);
+	for (i = 0 ; i < RX_RING_SIZE; i++) {
+		dev_info(&dev->dev, "  0x%p: %04x %04x %08x\n",
+			 bdp, bdp->cbd_sc, bdp->cbd_datlen,
+			 (int)bdp->cbd_bufaddr);
+		bdp++;
+	}
+	spin_unlock_bh(&fep->hw_lock);
+}
+
+static void mtip_timeout(struct net_device *dev, unsigned int txqueue)
+{
+	struct mtip_ndev_priv *priv = netdev_priv(dev);
+
+	dev->stats.tx_errors++;
+	DO_ONCE(mtip_print_hw_state, dev);
+
+	schedule_work(&priv->tx_timeout_work);
+}
+
+static void mtip_timeout_work(struct work_struct *work)
+{
+	struct mtip_ndev_priv *priv =
+		container_of(work, struct mtip_ndev_priv, tx_timeout_work);
+	struct switch_enet_private *fep = priv->fep;
+	struct net_device *dev = priv->dev;
 
 	rtnl_lock();
 	if (netif_device_present(dev) || netif_running(dev)) {
@@ -1937,10 +1949,14 @@ static int __init mtip_switch_dma_init(struct switch_enet_private *fep)
 
 static void mtip_ndev_cleanup(struct switch_enet_private *fep)
 {
+	struct mtip_ndev_priv *priv;
 	int i;
 
 	for (i = 0; i < SWITCH_EPORT_NUMBER; i++) {
 		if (fep->ndev[i]) {
+			priv = netdev_priv(fep->ndev[i]);
+			cancel_work_sync(&priv->tx_timeout_work);
+
 			unregister_netdev(fep->ndev[i]);
 			free_netdev(fep->ndev[i]);
 		}
@@ -1981,6 +1997,9 @@ static int mtip_ndev_init(struct switch_enet_private *fep,
 				fep->ndev[i]->name, ret);
 			break;
 		}
+
+		INIT_WORK(&priv->tx_timeout_work, mtip_timeout_work);
+
 		dev_dbg(&fep->ndev[i]->dev, "%s: MTIP eth L2 switch %pM\n",
 			fep->ndev[i]->name, fep->ndev[i]->dev_addr);
 	}

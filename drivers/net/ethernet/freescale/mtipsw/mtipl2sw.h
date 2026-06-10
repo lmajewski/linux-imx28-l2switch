@@ -348,6 +348,7 @@ struct mtip_ndev_priv {
 	struct net_device_stats stats;
 	struct net_device *master_dev;
 	struct switch_enet_private *fep;
+	struct work_struct tx_timeout_work;
 };
 
 #define MCF_FEC_MII_DATA	0x040 /* MII manage frame reg */

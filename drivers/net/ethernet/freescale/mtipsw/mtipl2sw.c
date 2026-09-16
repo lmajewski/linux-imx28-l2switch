@@ -1186,8 +1186,17 @@ static void mtip_switch_tx(struct net_device *dev)
 		 */
 		if (fep->tx_full) {
 			fep->tx_full = 0;
-			if (netif_queue_stopped(dev))
-				netif_wake_queue(dev);
+			/* The TX ring and the tx_full flag are shared by
+			 * all switch ports, but the netdev queue state is
+			 * per port. @dev is picked by the port of the last
+			 * *received* frame, so waking only @dev can clear
+			 * the shared flag while the queue that was actually
+			 * stopped stays asleep forever.
+			 */
+			for (int i = 0; i < SWITCH_EPORT_NUMBER; i++)
+				if (fep->ndev[i] &&
+				    netif_queue_stopped(fep->ndev[i]))
+					netif_wake_queue(fep->ndev[i]);
 		}
 	}
 	fep->dirty_tx = bdp;

@@ -1740,6 +1740,12 @@ static int mtip_rx_napi(struct napi_struct *napi, int budget)
 	pkts = mtip_switch_rx(napi->dev, budget, &port);
 	if (pkts == -ENOMEM) {
 		napi_complete(napi);
+		/* Set default interrupt mask for L2 switch - the ISR cleared
+		 * MCF_ESW_IMR_RXF before scheduling us, and completing NAPI
+		 * without restoring it leaves the switch permanently deaf.
+		 */
+		writel(MCF_ESW_IMR_RXF | MCF_ESW_IMR_TXF,
+		       fep->hwp + ESW_IMR);
 		return 0;
 	}
 

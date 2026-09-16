@@ -1232,6 +1232,50 @@ static void mtip_switch_tx(struct net_device *dev)
 	spin_unlock_bh(&fep->hw_lock);
 }
 
+/*
+ * Unknown unicast is flooded to every port but the ingress one, management
+ * port included, and the ESW register map has no mask for it - DBCR and DMCR
+ * cover only broadcast and multicast. Drop that copy here rather than pay an
+ * skb, a copy and a clone into every AF_PACKET tap for a frame the first
+ * consumer discards; the switch forwards it between the external ports in
+ * hardware either way.
+ *
+ * unknown_uc_to_host=1 restores the old behaviour, e.g. for tcpdump.
+ */
+static bool unknown_uc_to_host;
+module_param(unknown_uc_to_host, bool, 0644);
+MODULE_PARM_DESC(unknown_uc_to_host,
+		 "pass unicast frames addressed to neither a port nor the bridge up to the host (default: 0, drop them)");
+
+static bool mtip_rx_dest_is_local(struct switch_enet_private *fep,
+				  const unsigned char *dest)
+{
+	int i;
+
+	if (is_multicast_ether_addr(dest))
+		return true;
+
+	for (i = 0; i < SWITCH_EPORT_NUMBER; i++) {
+		struct mtip_ndev_priv *priv;
+
+		if (!fep->ndev[i])
+			continue;
+
+		if (ether_addr_equal(dest, fep->ndev[i]->dev_addr))
+			return true;
+
+		/* The IP address and the PROFINET device address live on
+		 * the bridge, whose MAC address need not be either port's.
+		 */
+		priv = netdev_priv(fep->ndev[i]);
+		if (priv->master_dev &&
+		    ether_addr_equal(dest, priv->master_dev->dev_addr))
+			return true;
+	}
+
+	return false;
+}
+
 /* During a receive, the cur_rx points to the current incoming buffer.
  * When we update through the ring, if the next incoming buffer has
  * not been given to the system, we just set the empty indicator,
@@ -1294,6 +1338,7 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 		/* Process the incoming frame */
 		pkt_len = bdp->cbd_datlen;
 		data = (__u8 *)__va(bdp->cbd_bufaddr);
+		eth_hdr = (struct ethhdr *)data;
 
 		dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
 				 bdp->cbd_datlen, DMA_FROM_DEVICE);
@@ -1301,8 +1346,7 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 		if (fep->quirks & FEC_QUIRK_SWAP_FRAME)
 			swap_buffer(data, pkt_len);
 
-		if (data) {
-			eth_hdr = (struct ethhdr *)data;
+		if (eth_hdr) {
 			mtip_atable_get_entry_port_number(fep,
 							  eth_hdr->h_source,
 							  &rx_port);
@@ -1322,19 +1366,28 @@ static int mtip_switch_rx(struct net_device *dev, int budget, int *port)
 		pndev->stats.rx_packets++;
 		pndev->stats.rx_bytes += pkt_len;
 
-		/* This does 16 byte alignment, exactly what we need.
-		 * The packet length includes FCS, but we don't want to
-		 * include that when passing upstream as it messes up
-		 * bridging applications.
-		 */
-		skb = netdev_alloc_skb(pndev, pkt_len + NET_IP_ALIGN);
-		if (unlikely(!skb)) {
-			dev_dbg(&fep->pdev->dev,
-				"%s: Memory squeeze, dropping packet.\n",
-				pndev->name);
+		if (eth_hdr && !unknown_uc_to_host &&
+		    !mtip_rx_dest_is_local(fep, eth_hdr->h_dest)) {
+			/* Flooded to the management port for want of a
+			 * hardware filter - see above.
+			 */
 			pndev->stats.rx_dropped++;
-			goto err_mem;
+			skb = NULL;
 		} else {
+			/* This does 16 byte alignment, exactly what we need.
+			 * The packet length includes FCS, but we don't want
+			 * to include that when passing upstream as it messes
+			 * up bridging applications.
+			 */
+			skb = netdev_alloc_skb(pndev, pkt_len + NET_IP_ALIGN);
+			if (unlikely(!skb)) {
+				dev_dbg(&fep->pdev->dev,
+					"%s: Memory squeeze, dropping packet.\n",
+					pndev->name);
+				pndev->stats.rx_dropped++;
+				goto err_mem;
+			}
+
 			skb_reserve(skb, NET_IP_ALIGN);
 			skb_put(skb, pkt_len);      /* Make room */
 			skb_copy_to_linear_data(skb, data, pkt_len);

@@ -635,14 +635,43 @@ static void mtip_aging_timer(struct timer_list *t)
 		  jiffies + msecs_to_jiffies(LEARNING_AGING_INTERVAL));
 }
 
+/* Multicast destinations the management port has to receive. The lookup table
+ * is the only way in, so this list has to be complete: an address that is not
+ * here never reaches the CPU, and whatever protocol needs it breaks - with no
+ * log line anywhere to say so. Add PTCP 01-0E-CF-00-04-00/20/40/80, MRP
+ * 01-15-4E-00-00-01..05 or HSYNC 01-0E-CF-00-05-00 when those components get
+ * built in. Port mask 0x7 is the management port plus both external ports.
+ */
+static const struct {
+	unsigned char mac[ETH_ALEN];
+	unsigned int port_mask;
+	const char *use;
+} mtip_mgnt_mcast[] = {
+	{ { 0x01, 0x0e, 0xcf, 0x00, 0x00, 0x00 }, 0x7, "PN-DCP identify" },
+	{ { 0x01, 0x0e, 0xcf, 0x00, 0x00, 0x01 }, 0x7, "PN-DCP hello" },
+};
+
 static void esw_mac_addr_static(struct switch_enet_private *fep)
 {
 	unsigned char reserved_mac[6] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x00};
-	int i;
+	unsigned int m;
+	int i, ret;
 
 	for (i = 0; i < SWITCH_EPORT_NUMBER; i++)
 		mtip_update_atable_static((unsigned char *)
 					  fep->ndev[i]->dev_addr, 7, 7, fep);
+
+	for (m = 0; m < ARRAY_SIZE(mtip_mgnt_mcast); m++) {
+		ret = mtip_update_atable_static((unsigned char *)
+						mtip_mgnt_mcast[m].mac,
+						mtip_mgnt_mcast[m].port_mask,
+						7, fep);
+		if (ret)
+			dev_err(&fep->pdev->dev,
+				"no lookup table slot for %pM (%s): %d - these frames will not reach the CPU\n",
+				mtip_mgnt_mcast[m].mac, mtip_mgnt_mcast[m].use,
+				ret);
+	}
 
 	/*
 	 * Prevent forwarding of reserved MAC addresses - according to:
